@@ -33,4 +33,4 @@ class Recipe(models.Model):
 class Amount(models.Model):
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент", related_name='amount')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name="Рецепт")
-    weight = models.IntegerField('Вес', null=False, blank=False)
+    amount = models.IntegerField('Вес', null=False, blank=False)

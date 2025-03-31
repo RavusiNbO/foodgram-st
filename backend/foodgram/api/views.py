@@ -7,21 +7,31 @@ from users.models import Follow, Favorite, PurchaseList
 from rest_framework import generics, viewsets, filters, pagination, mixins
 from rest_framework.decorators import action
 from djoser.views import UserViewSet
+from rest_framework import status
 
 class CustomUserViewSet(UserViewSet):
     pagination_class=pagination.LimitOffsetPagination
 
-    def get_serializer(self):
+    def get_serializer_class(self):
         if self.action == 'update' or self.action == 'destroy':
             return serializers.AvatarSerializer
         return serializers.UserSerializer
 
-    @action(methods=['put', 'delete'], detail=True)
-    def avatar(self, request):
-        if request.method.lower() == 'put':
-            self.request.user.avatar = request.data.get('avatar')
-        else:
-            self.request.user.avatar = None
+    @action(detail=True, methods=['put', 'delete'], url_path='avatar')
+    def avatar(self, request, pk=None):
+        user = self.get_object()
+        
+        if request.method == 'PUT':
+            serializer = self.get_serializer(user, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+            
+        elif request.method == 'DELETE':
+            user.avatar.delete(save=False)
+            user.avatar = None
+            user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
     
 
 
@@ -35,6 +45,15 @@ class RecipeView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = models.Recipe.objects.all()
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data)
+
+
+
+
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = models.Ingredient.objects.all()

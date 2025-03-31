@@ -116,14 +116,17 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS':'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE':10,
+    "LIMIT":2,
+    "OFFSET":0
 } 
 
 DJOSER = {
     'PAGINATION': {
         'PAGE_SIZE': 10,
-        'LIMIT': 10,  
+        'LIMIT': 2,  
         'OFFSET': 0,  
-    }
+    },
+    'SET_PASSWORD_RETYPE' : False
 }
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/

@@ -17,6 +17,7 @@ class Follow(models.Model):
 class Favorite(models.Model):
     user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Юзер", related_name="favorite_user")
     recipe = models.ForeignKey('api.Recipe', on_delete=models.CASCADE, verbose_name='Рецепт', blank=True, related_name="favorite_recipe")
+    
 
 class PurchaseList(models.Model):
     user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Юзер", related_name="purchase_user")
