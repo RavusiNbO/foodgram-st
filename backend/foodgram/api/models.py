@@ -1,28 +1,11 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
+
 User = get_user_model()
 
-ingredients = [
-    ("Соль", "Соль"),
-    ("Свёкла", "Свёкла"),
-    ("Сельдерей", "Сельдерей"),
-    ("Курятина", "Курятина"),
-    ("Сливки", "Сливки"),
-    ("Молоко", "Молоко"),
-    ("Вода", "Вода"),
-    ("Перец", "Перец"),
-    ("Кетчуп", "Кетчуп"),
-    ("Майонез", "Майонез"),
-    ("Колбаса", "Колбаса"),
-    ("Сыр", "Сыр"),
-    ("Фарш", "Фарш"),
-    ("Тесто", "Тесто"),
-    ("Масло", "Масло"),
-]
-
 class Ingredient(models.Model):
-    name = models.CharField("Название", max_length=30, choices=ingredients, null=False)
+    name = models.CharField("Название", max_length=30, null=False)
     measurement_unit = models.CharField("Единица измерения", max_length=15, null=False)
 
     class Meta:
@@ -30,7 +13,7 @@ class Ingredient(models.Model):
         verbose_name_plural = "Ингредиенты"
 
     def __str__(self):
-        return (self.name, self.measure)
+        return f'{self.name}, {self.measurement_unit}'
 
 class Recipe(models.Model):
     name = models.CharField("Название", max_length=30, null=False, blank=False)
@@ -45,9 +28,9 @@ class Recipe(models.Model):
         verbose_name_plural = "Рецепты"
 
     def __str__(self):
-        return (self.name, self.author.username)
+        return f'{self.name}, {self.author.username}'
     
 class Amount(models.Model):
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент")
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент", related_name='amount')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name="Рецепт")
     weight = models.IntegerField('Вес', null=False, blank=False)

@@ -38,7 +38,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api.apps.ApiConfig',
-    'users.apps.UsersConfig'
+    'users.apps.UsersConfig',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'djoser',
+    'django_filters'
 ]
 
 MIDDLEWARE = [
@@ -102,6 +106,25 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated', 
+    ],
+
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PAGINATION_CLASS':'rest_framework.pagination.LimitOffsetPagination',
+    'PAGE_SIZE':10,
+} 
+
+DJOSER = {
+    'PAGINATION': {
+        'PAGE_SIZE': 10,
+        'LIMIT': 10,  
+        'OFFSET': 0,  
+    }
+}
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 

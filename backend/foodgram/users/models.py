@@ -6,7 +6,9 @@ class CustomUser(AbstractUser):
     favorites = models.ManyToManyField('api.Recipe', verbose_name='Избранное', blank=True, through='Favorite')
     following = models.ManyToManyField('users.CustomUser', verbose_name='Подписка', blank=True, through='Follow')
     avatar = models.ImageField("Аватар", upload_to="avatar_images", blank=True, null=True)
-    REQUIRED_FIELDS=["first_name", "last_name", "email"]
+    email = models.EmailField(unique=True)
+    REQUIRED_FIELDS=["first_name", "last_name", 'username']
+    USERNAME_FIELD='email'
 
 class Follow(models.Model):
     follower = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Подписчик", related_name="follow_follower")
