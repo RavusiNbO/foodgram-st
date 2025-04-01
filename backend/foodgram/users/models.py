@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-# Create your models here.
 
 class CustomUser(AbstractUser):
     favorites = models.ManyToManyField('api.Recipe', verbose_name='Избранное', blank=True, through='Favorite')
@@ -14,11 +13,20 @@ class Follow(models.Model):
     follower = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Подписчик", related_name="follow_follower")
     user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Автор", related_name="follow_user")
 
+    class Meta:
+        unique_together = ['user', 'follower']
+
 class Favorite(models.Model):
     user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Юзер", related_name="favorite_user")
     recipe = models.ForeignKey('api.Recipe', on_delete=models.CASCADE, verbose_name='Рецепт', blank=True, related_name="favorite_recipe")
+
+    class Meta:
+        unique_together = ['user', 'recipe']
     
 
-class PurchaseList(models.Model):
-    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Юзер", related_name="purchase_user")
-    recipe = models.ForeignKey('api.Recipe', on_delete=models.CASCADE, verbose_name='Рецепт', blank=True, related_name="purchase_recipe")
+class Cart(models.Model):
+    user = models.ForeignKey('CustomUser', on_delete=models.CASCADE, verbose_name="Юзер", related_name="cart_user")
+    recipe = models.ForeignKey('api.Recipe', on_delete=models.CASCADE, verbose_name='Рецепт', related_name="cart_recipe")
+
+    class Meta:
+        unique_together = ['user', 'recipe'] 

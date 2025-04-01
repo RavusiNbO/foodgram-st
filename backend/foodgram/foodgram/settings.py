@@ -115,17 +115,10 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PAGINATION_CLASS':'rest_framework.pagination.LimitOffsetPagination',
-    'PAGE_SIZE':10,
-    "LIMIT":2,
-    "OFFSET":0
+    'PAGE_SIZE':5
 } 
 
 DJOSER = {
-    'PAGINATION': {
-        'PAGE_SIZE': 10,
-        'LIMIT': 2,  
-        'OFFSET': 0,  
-    },
     'SET_PASSWORD_RETYPE' : False
 }
 # Internationalization
