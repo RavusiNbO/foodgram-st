@@ -68,15 +68,12 @@ class UserSerializer(serializers.ModelSerializer):
             "is_subscribed",
             'password'
         )
-        write_only_fields = [
-            'password'
-        ]
-        required_fields = [
-            'last_name',
-            'first_name',
-            'email',
-
-        ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'last_name': {'required': True},
+            'first_name': {'required': True},
+            'email': {'required': True},
+        }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
