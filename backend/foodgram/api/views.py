@@ -2,12 +2,13 @@ from . import serializers
 from rest_framework.response import Response
 from . import models
 from users.models import Follow, Favorite, Cart
-from rest_framework import generics, viewsets, filters, pagination, mixins
+from rest_framework import viewsets, filters, pagination, mixins
 from rest_framework.decorators import action
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from rest_framework_csv.renderers import CSVRenderer
 
 User = get_user_model()
 
@@ -137,6 +138,30 @@ class RecipeViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, mixins.L
             cart.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         
+    @action(methods=["get"], detail=False, url_path="download_shopping_cart", renderer_classes=[CSVRenderer,])
+    def download_shopping_cart(self, request):
+        objects = Cart.objects.filter(user=request.user)
+        ingredients = (
+        Cart.objects
+        .filter(user=request.user)
+        .values(
+            'recipe__ingredients__name',
+            'recipe__ingredients__measurement_unit',
+            'recipe__amount__amount'
+        )
+        )
+
+        content = [
+            {
+                'name' : i['recipe__ingredients__name'],
+                'measurement_unit' : i['recipe__ingredients__measurement_unit'],
+                'amount' : i['recipe__amount__amount']
+            }
+            for i in ingredients
+        ]
+        del content[0]
+
+        return Response(content)
 
     
         
