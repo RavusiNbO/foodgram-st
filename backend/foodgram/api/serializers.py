@@ -69,7 +69,8 @@ class UserSerializer(serializers.ModelSerializer):
             "avatar",
             "is_subscribed",
             'password',
-            'id'
+            'id',
+            'recipes'
         )
         extra_kwargs = {
             'password': {'write_only': True},
@@ -87,6 +88,19 @@ class UserSerializer(serializers.ModelSerializer):
             if request.path.endswith('/api/users/') and request.method == 'POST':
                 self.fields.pop('avatar')
                 self.fields.pop('is_subscribed')
+            
+            elif request.path.endswith('/api/users/subscriptions'):
+
+            self.fields.pop('recipes')
+
+
+            
+
+    def get_author(self, obj):
+        request = self.context.get('request')
+        recipe_limit = request.query_params.get('recipe')
+        if recipe_limit:
+            queryset = 
     
     def get_is_subscribed(self, obj):
         request = self.context.get("request")
@@ -162,6 +176,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     
+
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop("amount_set")
