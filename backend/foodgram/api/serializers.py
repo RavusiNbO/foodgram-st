@@ -19,7 +19,10 @@ class CustomSetPasswordSerializer(SetPasswordSerializer):
 
 
 class IngredientSerializer(serializers.ModelSerializer):
-    amount = serializers.PrimaryKeyRelatedField(queryset=models.Amount.objects.all())
+    amount = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        queryset=models.Amount.objects.all()
+    )
 
     class Meta:
         model = models.Ingredient
@@ -64,9 +67,9 @@ class UserSerializer(serializers.ModelSerializer):
             "username",
             "last_name",
             "avatar",
-            "id",
             "is_subscribed",
-            'password'
+            'password',
+            'id'
         )
         extra_kwargs = {
             'password': {'write_only': True},
@@ -82,7 +85,8 @@ class UserSerializer(serializers.ModelSerializer):
 
         if request and hasattr(request, 'path') and hasattr(request, 'method'):
             if request.path.endswith('/api/users/') and request.method == 'POST':
-                self.fields.pop('id', None)  
+                self.fields.pop('avatar')
+                self.fields.pop('is_subscribed')
     
     def get_is_subscribed(self, obj):
         request = self.context.get("request")
@@ -156,6 +160,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Recipe
         fields = "__all__"
+
+    
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop("amount_set")

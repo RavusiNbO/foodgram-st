@@ -9,6 +9,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework_csv.renderers import CSVRenderer
+from django_filters.rest_framework import DjangoFilterBackend
 
 User = get_user_model()
 
@@ -47,7 +48,7 @@ class CustomUserViewSet(UserViewSet):
     def subscriptions(self, request, *args, **kwargs):
         user = request.user
         queryset = User.objects.filter(follow_user__follower=user)
-        page = self.pagination_class(queryset)
+        page = self.paginate_queryset(queryset)
         serialzier = self.get_serializer_class()(page, many=True, context=self.get_serializer_context())
         return Response(data=serialzier.data, status=status.HTTP_200_OK)
     
@@ -74,6 +75,8 @@ class CustomUserViewSet(UserViewSet):
 class RecipeViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, mixins.ListModelMixin, mixins.DestroyModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
     queryset=models.Recipe.objects.all()
     serializer_class=serializers.RecipeSerializer
+    filter_backends = [DjangoFilterBackend, ]
+    filterset_fields = ['author', 'is_favorited', 'is_in_shopping_cart']
 
     def get_serializer_class(self):
         if self.request.method == 'PATCH':
@@ -97,7 +100,7 @@ class RecipeViewSet(mixins.CreateModelMixin, mixins.RetrieveModelMixin, mixins.L
             return self.get_paginated_response(serializer.data)
         
     @action(detail=True, methods=['get'], url_path="get-link")
-    def get_ink(self, request, *args, **kwargs):
+    def get_link(self, request, *args, **kwargs):
         res = request.build_absolute_uri().split('get-link')[0]
         return Response({'short-link':res}, status=status.HTTP_200_OK)
     
