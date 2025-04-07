@@ -16,12 +16,12 @@ class Ingredient(models.Model):
         return f'{self.name}, {self.measurement_unit}'
 
 class Recipe(models.Model):
-    name = models.CharField("Название", max_length=30, null=False, blank=False)
+    name = models.CharField("Название", max_length=256, null=False, blank=False)
     image = models.ImageField("Картинка", null=False, blank=False)
     text = models.TextField("Описание", null=False, blank=False)
     cooking_time = models.IntegerField("Время приготовления", null=False, blank=False)
     ingredients = models.ManyToManyField(Ingredient, verbose_name="Ингредиенты", blank=False, through="Amount")
-    author = models.ForeignKey(User, verbose_name="Автор", null=False, on_delete=models.CASCADE, blank=False)
+    author = models.ForeignKey(User, verbose_name="Автор", null=False, on_delete=models.CASCADE, blank=False, related_name='recipe')
 
     class Meta:
         verbose_name = "Рецепт"
