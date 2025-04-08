@@ -177,75 +177,6 @@ class RecipeAmountSerializer(serializers.ModelSerializer):
         return value
 
 
-class RecipeUpdateSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
-    ingredients = RecipeAmountSerializer(
-        many=True, source="amount_set", required=True
-    )
-    image = Base64Serializer(required=False)
-    is_favorited = serializers.SerializerMethodField()
-    is_in_shopping_cart = serializers.SerializerMethodField()
-
-    class Meta:
-        model = models.Recipe
-        fields = "__all__"
-        extra_kwargs = {
-            'ingredients': {'required': True}, 
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'request' in self.context:
-            self.fields['author'].context['request'] = self.context['request']
-
-
-    def validate_cooking_time(self, value):
-        if value < 1:
-            raise serializers.ValidationError('Время готовки меньше 1!')
-        return value
-    
-    def validate_ingredients(self, value):
-        s = set()
-        if value == []:
-            raise serializers.ValidationError('Список игредиентов пуст!')
-        for i in value:
-            s.add(i['ingredient'].name)
-        if len(value) != len(s):
-            raise serializers.ValidationError("Ингредиенты не должны повторяться!")
-        return value
-
-    def update(self, obj, validated_data):
-        ingredients_data = validated_data.pop("amount_set")
-        obj.name = validated_data["name"]
-        obj.text = validated_data["text"]
-        obj.cooking_time = validated_data["cooking_time"]
-        if "image" in validated_data:
-            obj.image = validated_data["image"]
-        obj.save()
-
-        if ingredients_data is not None:
-            obj.amount_set.all().delete()
-
-            for ingredient_data in ingredients_data:
-
-                models.Amount.objects.create(
-                    recipe=obj,
-                    ingredient=ingredient_data["ingredient"],
-                    amount=ingredient_data["amount"],
-                )
-        return obj
-    
-    def get_is_favorited(self, obj):
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, recipe=obj).exists()
-        return False
-
-    def get_is_in_shopping_cart(self, obj):
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return Cart.objects.filter(user=request.user, recipe=obj).exists()
-        return False
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -296,6 +227,27 @@ class RecipeSerializer(serializers.ModelSerializer):
                 amount=ingredient_data["amount"],
             )
         return recipe
+    
+    def update(self, obj, validated_data):
+        ingredients_data = validated_data.pop("amount_set")
+        obj.name = validated_data["name"]
+        obj.text = validated_data["text"]
+        obj.cooking_time = validated_data["cooking_time"]
+        if "image" in validated_data:
+            obj.image = validated_data["image"]
+        obj.save()
+
+        if ingredients_data is not None:
+            obj.amount_set.all().delete()
+
+            for ingredient_data in ingredients_data:
+
+                models.Amount.objects.create(
+                    recipe=obj,
+                    ingredient=ingredient_data["ingredient"],
+                    amount=ingredient_data["amount"],
+                )
+        return obj
     
 
     def get_is_favorited(self, obj):
