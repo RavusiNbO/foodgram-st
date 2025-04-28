@@ -1,14 +1,10 @@
-from rest_framework.authtoken.serializers import AuthTokenSerializer
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from rest_framework import permissions, authentication
 from . import models
 from users.models import Follow, Favorite, Cart
 from django.core.files.base import ContentFile
 import base64
-from django.shortcuts import get_object_or_404, get_list_or_404
 from djoser.serializers import SetPasswordSerializer
-from rest_framework import exceptions
 
 
 User = get_user_model()
@@ -49,17 +45,12 @@ class AvatarSerializer(serializers.ModelSerializer):
         model = User
         fields = ("avatar",)
 
-class RecipeFollowSerializer(serializers.ModelSerializer):
 
+class RecipeFollowSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.Recipe
-        fields = [
-            'id',
-            'name',
-            'image',
-            'cooking_time'
-        ]
+        fields = ["id", "name", "image", "cooking_time"]
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -78,16 +69,16 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "avatar",
             "is_subscribed",
-            'password',
-            'id',
-            'recipes',
-            'recipes_count'
+            "password",
+            "id",
+            "recipes",
+            "recipes_count",
         )
         extra_kwargs = {
-            'password': {'write_only': True},
-            'last_name': {'required': True},
-            'first_name': {'required': True},
-            'email': {'required': True},
+            "password": {"write_only": True},
+            "last_name": {"required": True},
+            "first_name": {"required": True},
+            "email": {"required": True},
         }
 
     def get_recipes_count(self, obj):
@@ -96,59 +87,58 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_fields(self):
         fields = super().get_fields()
-        if hasattr(self, 'context'):
-            request = self.context.get('request')
-            if request and not request.path.endswith('/api/users/subscriptions/') and not request.path.endswith('/subscribe/'):
-                fields.pop('recipes', None)
-                fields.pop('recipes_count', None)
+        if hasattr(self, "context"):
+            request = self.context.get("request")
+            if (
+                request
+                and not request.path.endswith("/api/users/subscriptions/")
+                and not request.path.endswith("/subscribe/")
+            ):
+                fields.pop("recipes", None)
+                fields.pop("recipes_count", None)
         return fields
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
-        
-        if request and hasattr(request, 'path') and hasattr(request, 'method'):
-            if request.path.endswith('/api/users/') and request.method == 'POST':
-                self.fields.pop('avatar')
-                self.fields.pop('is_subscribed')
-        
 
-
+        if request and hasattr(request, "path") and hasattr(request, "method"):
+            if request.path.endswith("/api/users/") and request.method == "POST":
+                self.fields.pop("avatar")
+                self.fields.pop("is_subscribed")
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        avatar = validated_data.pop('avatar', None)
-        
+        password = validated_data.pop("password", None)
+        avatar = validated_data.pop("avatar", None)
+
         user = User.objects.create_user(**validated_data)
-        
+
         if password:
             user.set_password(password)
             user.save()
-        
+
         if avatar:
             user.avatar = avatar
             user.save()
-        
+
         return user
 
     def get_recipes(self, obj):
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request:
             return []
-        
-        recipes_limit = request.query_params.get('recipes_limit')
+
+        recipes_limit = request.query_params.get("recipes_limit")
         recipes = models.Recipe.objects.filter(author=obj)
 
         if recipes_limit:
             try:
-                recipes = recipes[:int(recipes_limit)]
+                recipes = recipes[: int(recipes_limit)]
             except (ValueError, TypeError):
                 pass
-        
+
         return RecipeFollowSerializer(recipes, many=True).data
 
-            
-    
     def get_is_subscribed(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
@@ -165,7 +155,6 @@ class RecipeAmountSerializer(serializers.ModelSerializer):
         source="ingredient.measurement_unit", read_only=True
     )
     amount = serializers.IntegerField()
-    
 
     class Meta:
         model = models.Amount
@@ -173,17 +162,13 @@ class RecipeAmountSerializer(serializers.ModelSerializer):
 
     def validate_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError('Отрицательное кол-во ингредиента!')
+            raise serializers.ValidationError("Отрицательное кол-во ингредиента!")
         return value
-
-
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    ingredients = RecipeAmountSerializer(
-        many=True, required=True, source="amount_set"
-    )
+    ingredients = RecipeAmountSerializer(many=True, required=True, source="amount_set")
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = Base64Serializer(required=True)
@@ -194,32 +179,28 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'request' in self.context:
-            self.fields['author'].context['request'] = self.context['request']
+        if "request" in self.context:
+            self.fields["author"].context["request"] = self.context["request"]
 
-   
-    
     def validate_cooking_time(self, value):
         if value < 1:
-            raise serializers.ValidationError('Время готовки меньше 1!')
+            raise serializers.ValidationError("Время готовки меньше 1!")
         return value
-    
+
     def validate_ingredients(self, value):
         s = set()
         if value == []:
-            raise serializers.ValidationError('Список игредиентов пуст!')
+            raise serializers.ValidationError("Список игредиентов пуст!")
         for i in value:
-            s.add(i['ingredient'].name)
+            s.add(i["ingredient"].name)
         if len(value) != len(s):
             raise serializers.ValidationError("Ингредиенты не должны повторяться!")
         return value
-    
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop("amount_set")
         recipe = models.Recipe.objects.create(**validated_data)
 
-        
         for ingredient_data in ingredients_data:
             models.Amount.objects.create(
                 recipe=recipe,
@@ -227,7 +208,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 amount=ingredient_data["amount"],
             )
         return recipe
-    
+
     def update(self, obj, validated_data):
         ingredients_data = validated_data.pop("amount_set")
         obj.name = validated_data["name"]
@@ -248,7 +229,6 @@ class RecipeSerializer(serializers.ModelSerializer):
                     amount=ingredient_data["amount"],
                 )
         return obj
-    
 
     def get_is_favorited(self, obj):
         request = self.context.get("request")
