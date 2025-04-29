@@ -35,5 +35,5 @@ services:
     build: ../backend
     env_file: ../backend/.env
     volumes:
-      - static:/
+      - static:/backend_static/
     
