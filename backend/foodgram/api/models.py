@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-
+#adsd
 class Ingredient(models.Model):
     name = models.CharField("Название", max_length=100, null=False)
     measurement_unit = models.CharField("Единица измерения", max_length=15, null=False)
