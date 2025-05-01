@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 class Ingredient(models.Model):
-    name = models.CharField("Название", max_length=00, null=False)
+    name = models.CharField("Название", max_length=100, null=False)
     measurement_unit = models.CharField("Единица измерения", max_length=15, null=False)
 
     class Meta:
