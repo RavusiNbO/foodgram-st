@@ -18,7 +18,7 @@ class Ingredient(models.Model):
         verbose_name_plural = "Ингредиенты"
 
     def __str__(self):
-        return f"{self.name}, {self.measurement_unit}"
+        return f"{self.name} - {self.measurement_unit}"
 
 
 class Recipe(models.Model):
@@ -52,7 +52,7 @@ class Recipe(models.Model):
         verbose_name_plural = "Рецепты"
 
     def __str__(self):
-        return f"{self.name}, {self.author.username}"
+        return f"{self.name} - {self.author.username}"
 
 
 class Amount(models.Model):
@@ -68,3 +68,6 @@ class Amount(models.Model):
         verbose_name="Рецепт"
     )
     amount = models.IntegerField("Вес", null=False, blank=False)
+
+    def __str__(self):
+        return f'{self.ingredient.name} - {self.recipe.name} - {self.amount}'

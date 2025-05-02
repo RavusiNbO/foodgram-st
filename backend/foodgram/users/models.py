@@ -32,6 +32,9 @@ class CustomUser(AbstractUser):
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
 
+    def __str__(self):
+        return f'{self.username}'
+
 
 class Follow(models.Model):
     follower = models.ForeignKey(
@@ -51,6 +54,9 @@ class Follow(models.Model):
         unique_together = ['user', 'follower']
         verbose_name = "Подписка"
         verbose_name_plural = "Подписки"
+
+    def __str__(self):
+        return f'{self.follower.username} - {self.user.username}'
 
 
 class Favorite(models.Model):
@@ -73,6 +79,9 @@ class Favorite(models.Model):
         verbose_name = "Избранное"
         verbose_name_plural = "Избранные"
 
+    def __str__(self):
+        return f'{self.user.username} - {self.recipe.name}'
+
 
 class Cart(models.Model):
     user = models.ForeignKey(
@@ -92,3 +101,6 @@ class Cart(models.Model):
         unique_together = ['user', 'recipe']
         verbose_name = "Корзина покупок"
         verbose_name_plural = "Корзины покупок"
+
+    def __str__(self):
+        return f'{self.user.username} - {self.recipe.name}'
