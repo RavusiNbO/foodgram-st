@@ -13,6 +13,7 @@ from rest_framework_csv.renderers import CSVRenderer
 from rest_framework import permissions
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import RecipeFilter, IngredientFilter
+from .paginators import PageLimitPagination
 
 User = get_user_model()
 
@@ -84,7 +85,10 @@ class CustomUserViewSet(UserViewSet):
             serializer = self.get_serializer_class()(
                 user, context=self.get_serializer_context()
             )
-            return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                data=serializer.data,
+                status=status.HTTP_201_CREATED
+            )
         else:
             try:
                 obj = Follow.objects.get(follower=follower, user=user)
@@ -108,6 +112,7 @@ class RecipeViewSet(
         DjangoFilterBackend,
     ]
     filterset_class = RecipeFilter
+    pagination_class = PageLimitPagination
 
     def get_permissions(self):
         if self.action in [
@@ -169,7 +174,10 @@ class RecipeViewSet(
         recipe = get_object_or_404(models.Recipe, pk=pk)
 
         if request.method == "POST":
-            if Favorite.objects.filter(user=request.user, recipe=recipe).exists():
+            if Favorite.objects.filter(
+                user=request.user,
+                recipe=recipe
+            ).exists():
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
             fav = Favorite.objects.create(user=request.user, recipe=recipe)
@@ -177,11 +185,17 @@ class RecipeViewSet(
             serializer = self.get_serializer_class()(
                 new, context=self.get_serializer_context()
             )
-            return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                data=serializer.data,
+                status=status.HTTP_201_CREATED
+            )
 
         else:
             try:
-                favorite = Favorite.objects.get(recipe=recipe, user=request.user)
+                favorite = Favorite.objects.get(
+                    recipe=recipe,
+                    user=request.user
+                )
             except Favorite.DoesNotExist:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             favorite.delete()
@@ -225,7 +239,6 @@ class RecipeViewSet(
             "recipe__ingredients__measurement_unit",
             "recipe__amount__amount",
         )
-
         content = [
             {
                 "name": i["recipe__ingredients__name"],
@@ -234,7 +247,6 @@ class RecipeViewSet(
             }
             for i in ingredients
         ]
-        del content[0]
 
         return Response(content)
 

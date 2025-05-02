@@ -2,8 +2,14 @@ FROM python:3.12
 
 WORKDIR /app
 
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-RUN pip install -r requirements.txt
+WORKDIR /app/foodgram
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]
+RUN python manage.py collectstatic
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "foodgram.wsgi"]
