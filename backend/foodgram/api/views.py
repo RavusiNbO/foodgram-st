@@ -240,6 +240,7 @@ class RecipeViewSet(
         )
         content = []
         d = []
+        a = "recipe__ingredients__measurement_unit"
         for i in ingredients:
             if i['recipe__ingredients__name'] in d:
                 for j in content:
@@ -249,12 +250,12 @@ class RecipeViewSet(
             else:
                 d.append(i["recipe__ingredients__name"])
                 content.append(
-                        {
-                            "name" : i["recipe__ingredients__name"],
-                            "measurement_unit" : i["recipe__ingredients__measurement_unit"],
-                            "amount" : i["recipe__amount__amount"]
-                        }
-                    )
+                    {
+                        "name": i["recipe__ingredients__name"],
+                        "measurement_unit": i[a],
+                        "amount": i["recipe__amount__amount"]
+                    }
+                )
 
         return Response(content)
 
