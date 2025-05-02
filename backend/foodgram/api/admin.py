@@ -16,8 +16,6 @@ class RecipeAdmin(admin.ModelAdmin):
         return Favorite.objects.filter(recipe=obj).count()
 
 
-
-
 class IngredientAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
