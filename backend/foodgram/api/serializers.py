@@ -103,7 +103,8 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         if request and hasattr(request, "path") and hasattr(request, "method"):
-            if request.path.endswith("/api/users/") and request.method == "POST":
+            if request.path.endswith("/api/users/") \
+                    and request.method == "POST":
                 self.fields.pop("avatar")
                 self.fields.pop("is_subscribed")
 
@@ -142,7 +143,9 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_subscribed(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return Follow.objects.filter(follower=request.user, user=obj).exists()
+            return Follow.objects.filter(
+                follower=request.user,
+                user=obj).exists()
         return False
 
 
@@ -162,13 +165,19 @@ class RecipeAmountSerializer(serializers.ModelSerializer):
 
     def validate_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("Отрицательное кол-во ингредиента!")
+            raise serializers.ValidationError(
+                "Отрицательное кол-во ингредиента!"
+            )
         return value
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    ingredients = RecipeAmountSerializer(many=True, required=True, source="amount_set")
+    ingredients = RecipeAmountSerializer(
+        many=True,
+        required=True,
+        source="amount_set"
+    )
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = Base64Serializer(required=True)
@@ -194,7 +203,9 @@ class RecipeSerializer(serializers.ModelSerializer):
         for i in value:
             s.add(i["ingredient"].name)
         if len(value) != len(s):
-            raise serializers.ValidationError("Ингредиенты не должны повторяться!")
+            raise serializers.ValidationError(
+                "Ингредиенты не должны повторяться!"
+            )
         return value
 
     def create(self, validated_data):
@@ -233,7 +244,9 @@ class RecipeSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            return Favorite.objects.filter(user=request.user, recipe=obj).exists()
+            return Favorite.objects.filter(
+                user=request.user,
+                recipe=obj).exists()
         return False
 
     def get_is_in_shopping_cart(self, obj):

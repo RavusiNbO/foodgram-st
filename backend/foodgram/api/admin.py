@@ -19,4 +19,3 @@ class IngredientAdmin(admin.ModelAdmin):
 admin.site.register(models.Ingredient, IngredientAdmin)
 admin.site.register(models.Recipe, RecipeAdmin)
 admin.site.register(models.Amount)
-
