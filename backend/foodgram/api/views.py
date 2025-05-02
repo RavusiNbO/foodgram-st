@@ -239,7 +239,6 @@ class RecipeViewSet(
             "recipe__ingredients__measurement_unit",
             "recipe__amount__amount",
         )
-
         content = [
             {
                 "name": i["recipe__ingredients__name"],
