@@ -15,10 +15,10 @@ class RecipeAdmin(admin.ModelAdmin):
         'text',
         'cooking_time',
         'ingredients',
-        'author__name',
+        'author',
         'fav_count'
     )
-    search_fields = ("author__name", "name")
+    search_fields = ("author__username", "name")
     inlines = (AmountInline,)
 
     def fav_count(self, obj):
