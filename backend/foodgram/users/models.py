@@ -8,14 +8,12 @@ class CustomUser(AbstractUser):
         verbose_name='Избранное',
         blank=True,
         through='Favorite',
-        verbose_name="Избранное"
     )
     following = models.ManyToManyField(
         'users.CustomUser',
-        verbose_name='Подписка',
+        verbose_name='Подписки',
         blank=True,
         through='Follow',
-        verbose_name="Подписки"
     )
     avatar = models.ImageField(
         "Аватар",
