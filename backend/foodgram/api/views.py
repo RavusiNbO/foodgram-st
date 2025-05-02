@@ -106,7 +106,7 @@ class RecipeViewSet(
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = models.Recipe.objects.all()
+    queryset = models.Recipe.objects.all().order_by('-id')
     serializer_class = serializers.RecipeSerializer
     filter_backends = [
         DjangoFilterBackend,
@@ -209,7 +209,6 @@ class RecipeViewSet(
         if request.method == "POST":
             if Cart.objects.filter(user=request.user, recipe=recipe).exists():
                 return Response(status=status.HTTP_400_BAD_REQUEST)
-
             Cart.objects.create(user=request.user, recipe=recipe)
             serializer = serializers.CartRecipeSerializer(
                 recipe, context=self.get_serializer_context()
@@ -239,14 +238,23 @@ class RecipeViewSet(
             "recipe__ingredients__measurement_unit",
             "recipe__amount__amount",
         )
-        content = [
-            {
-                "name": i["recipe__ingredients__name"],
-                "measurement_unit": i["recipe__ingredients__measurement_unit"],
-                "amount": i["recipe__amount__amount"],
-            }
-            for i in ingredients
-        ]
+        content = []
+        d = []
+        for i in ingredients:
+            if i['recipe__ingredients__name'] in d:
+                for j in content:
+                    if j["name"] == i["recipe__ingredients__name"]:
+                        j["amount"] += i["recipe__amount__amount"]
+                        break
+            else:
+                d.append(i["recipe__ingredients__name"])
+                content.append(
+                        {
+                            "name" : i["recipe__ingredients__name"],
+                            "measurement_unit" : i["recipe__ingredients__measurement_unit"],
+                            "amount" : i["recipe__amount__amount"]
+                        }
+                    )
 
         return Response(content)
 
