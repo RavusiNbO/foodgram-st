@@ -19,8 +19,7 @@ class CustomUser(AbstractUser):
         "Аватар",
         upload_to='avatar_images',
         blank=True,
-        null=True,
-        verbose_name="Аватар"
+        null=True
     )
     email = models.EmailField(
         unique=True,
