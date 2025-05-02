@@ -9,11 +9,21 @@ class AmountInline(admin.StackedInline):
 
 
 class RecipeAdmin(admin.ModelAdmin):
+    list_display = (
+        'name',
+        'image',
+        'text',
+        'cooking_time',
+        'ingredients',
+        'author',
+        'fav_count'
+    )
     search_fields = ("author__name", "name")
     inlines = (AmountInline,)
 
     def fav_count(self, obj):
         return Favorite.objects.filter(recipe=obj).count()
+    fav_count.short_description = 'Добавления в избранное'
 
 
 class IngredientAdmin(admin.ModelAdmin):
