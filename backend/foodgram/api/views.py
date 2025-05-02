@@ -248,7 +248,6 @@ class RecipeViewSet(
             }
             for i in ingredients
         ]
-        del content[0]
 
         return Response(content)
 
