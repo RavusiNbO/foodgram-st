@@ -4,6 +4,10 @@ from django.contrib.auth.admin import UserAdmin
 from . import models
 
 
+class UserAdminka(UserAdmin):
+    search_fields = ("username", 'email')
+
+
 User = get_user_model()
 
 admin.site.register(User, UserAdmin)

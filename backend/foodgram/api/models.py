@@ -71,3 +71,7 @@ class Amount(models.Model):
 
     def __str__(self):
         return f'{self.ingredient.name} - {self.recipe.name} - {self.amount}'
+
+    class Meta:
+        verbose_name = "Количество"
+        verbose_name_plural = "Количество"

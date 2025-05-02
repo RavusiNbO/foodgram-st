@@ -1,15 +1,21 @@
 from . import models
 from django.contrib import admin
+from users.models import Favorite
 
 
-class AmountInline(admin.StackedInline):  # или admin.StackedInline
+class AmountInline(admin.StackedInline):
     model = models.Amount
-    extra = 1  # Количество пустых форм для добавления
+    extra = 1
 
 
 class RecipeAdmin(admin.ModelAdmin):
-    search_fields = ("author", "name")
+    search_fields = ("author__name", "name")
     inlines = (AmountInline,)
+
+    def fav_count(self, obj):
+        return Favorite.objects.filter(recipe=obj).count()
+
+
 
 
 class IngredientAdmin(admin.ModelAdmin):
