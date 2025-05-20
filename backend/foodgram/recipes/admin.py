@@ -18,7 +18,7 @@ class RecipeAdmin(admin.ModelAdmin):
         'image',
         'text',
         'cooking_time',
-        'get_ingredients',
+        'ingredients_list',
         'author',
         'fav_count'
     )
@@ -29,7 +29,7 @@ class RecipeAdmin(admin.ModelAdmin):
         return models.Favorite.objects.filter(recipe=recipe).count()
     fav_count.short_description = 'Добавления в избранное'
 
-    def get_ingredients(self, recipe):
+    def ingredients_list(self, recipe):
         return ", ".join([ingredient.name for ingredient in recipe.ingredients.all()])
 
     @mark_safe
