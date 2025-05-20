@@ -2,7 +2,7 @@ from . import serializers
 from rest_framework.response import Response
 from recipes import models
 from recipes.models import Follow, Favorite, Cart
-from rest_framework import viewsets, pagination, mixins
+from rest_framework import viewsets, pagination
 from rest_framework.decorators import action, permission_classes
 from djoser.views import UserViewSet
 from rest_framework import status
@@ -15,8 +15,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .filters import RecipeFilter, IngredientFilter
 from .paginators import PageLimitPagination
 from django.core.exceptions import ObjectDoesNotExist
+from datetime import datetime
+import csv
+from io import StringIO, BytesIO
+from django.http import FileResponse
 
-User = models.FoodgramUser
+User = get_user_model()
 
 
 class FoodgramUserViewSet(UserViewSet):
@@ -210,31 +214,42 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ],
     )
     def download_shopping_cart(self, request):
-        ingredients = models.Cart.objects.filter(user=request.user).values(
-            "recipe__ingredients__name",
-            "recipe__ingredients__measurement_unit",
-            "recipe__products__amount",
+        cart_items = models.Cart.objects.filter(user=request.user).select_related('recipe', 'recipe__author')
+        
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        
+        writer.writerow([f"Список покупок ({datetime.now().strftime('%Y-%m-%d %H:%M')}"])
+        writer.writerow([])
+        
+        writer.writerow(['№', 'Ингредиент', 'Количество', 'Единица измерения'])
+        
+        ingredients = {}
+        recipes = set()
+        
+        for item in cart_items:
+            recipes.add(f"{item.recipe.name} (автор: {item.recipe.author.username})")
+            for product in item.recipe.products.all():
+                key = (product.ingredient.name, product.ingredient.measurement_unit)
+                ingredients[key] = ingredients.get(key, 0) + product.amount
+        
+        sorted_ingredients = sorted(ingredients.items(), key=lambda x: x[0][0])
+        for idx, ((name, unit), amount) in enumerate(sorted_ingredients, start=1):
+            writer.writerow([idx, name.capitalize(), amount, unit])
+        
+        writer.writerow([])
+        writer.writerow(["Рецепты:"])
+        for recipe in sorted(recipes):
+            writer.writerow([f"- {recipe}"])
+        
+        csv_buffer = BytesIO(buffer.getvalue().encode('utf-8'))
+        
+        return FileResponse(
+            csv_buffer,
+            content_type='text/csv',
+            as_attachment=True,
+            filename=f'shopping_list_{datetime.now().strftime("%Y%m%d")}.csv'
         )
-        content = []
-        d = []
-        a = "recipe__ingredients__measurement_unit"
-        for i in ingredients:
-            if i['recipe__ingredients__name'] in d:
-                for j in content:
-                    if j["name"] == i["recipe__ingredients__name"]:
-                        j["amount"] += i["recipe__products__amount"]
-                        break
-            else:
-                d.append(i["recipe__ingredients__name"])
-                content.append(
-                    {
-                        "name": i["recipe__ingredients__name"],
-                        "measurement_unit": i[a],
-                        "amount": i["recipe__products__amount"]
-                    }
-                )
-
-        return Response(content)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
