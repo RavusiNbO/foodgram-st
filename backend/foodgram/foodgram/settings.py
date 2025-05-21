@@ -12,19 +12,16 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
-from django.utils.translation import gettext_lazy
-from dotenv import load_dotenv
 
-load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-AUTH_USER_MODEL = "recipes.FoodgramUser"
+AUTH_USER_MODEL = "users.CustomUser"
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = "django-insecure-l05a41ee1yo6l-k!qu__zknr6v%+sx$yh)z#m_)=5srg08!7)&"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -42,7 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "api.apps.ApiConfig",
-    "recipes.apps.RecipesConfig",
+    "users.apps.UsersConfig",
     "rest_framework",
     "rest_framework.authtoken",
     "djoser",
@@ -57,7 +54,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'django.middleware.locale.LocaleMiddleware'
 ]
 
 ROOT_URLCONF = "foodgram.urls"
@@ -86,13 +82,20 @@ WSGI_APPLICATION = "foodgram.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / 'db.sqlite3'
+        "ENGINE": "django.db.backends.postgresql",
+        'NAME': os.getenv('POSTGRES_DB', 'django'),
+        'USER': os.getenv('POSTGRES_USER', 'django'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', 5432)
     }
 }
 
-# "ENGINE": "django.db.backends.sqlite3",
+# "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
 #         "NAME": BASE_DIR / 'db.sqlite3'
+#     }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -124,25 +127,18 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 6,
 }
 
-DJOSER = {
-    "SET_PASSWORD_RETYPE": False,
-    'SERIALIZERS': {
-        'set_password': 'djoser.serializers.SetPasswordSerializer',
-    }
-}
+DJOSER = {"SET_PASSWORD_RETYPE": False}
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "Europe/Moscow"
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
 USE_TZ = True
 
-LANGUAGES = [
-    ('ru', gettext_lazy('Russian')),
-]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
@@ -150,6 +146,7 @@ LANGUAGES = [
 
 STATIC_ROOT = BASE_DIR / "collected_static"
 
+STATIC_ROOT = BASE_DIR / "collected_static"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
