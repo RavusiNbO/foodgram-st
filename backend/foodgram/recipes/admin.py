@@ -36,8 +36,6 @@ class RecipeAdmin(admin.ModelAdmin):
     def image(self, recipe):
         return f'<img src="{recipe.image}">'
     
-    # @mark_safe
-    # def ingredients(self, recipe):
 
 
 @admin.register(models.Ingredient)
@@ -54,6 +52,35 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(models.FoodgramUser)
 class UserAdminka(UserAdmin):
     search_fields = ("username", 'email')
+    list_display = (
+        "id",
+        'username',
+        'FIO',
+        'email',
+        'avatar',
+        'recipes_count',
+        'follow_count',
+        'followers_count'
+    )
+
+    def recipes_count(self, user):
+        return models.Recipe.objects.filter(author=user).count()
+    recipes_count.short_description = 'Количество рецептов'
+
+    def followers_count(self, user):
+        return models.Follow.objects.filter(user=user).count()
+    followers_count.short_description = 'Количество подписчиков'
+
+    def follow_count(self, user):
+        return models.Follow.objects.filter(follower=user).count()
+    follow_count.short_description = 'Количество подписок'
+
+    def FIO(self, user):
+        return f'{user.last_name} {user.first_name}'
+    
+    @mark_safe
+    def avatar(self, user):
+        return f'<img src="{user.avatar}">'
 
 admin.site.register(models.ProductInRecipe)
 admin.site.register(models.Cart)

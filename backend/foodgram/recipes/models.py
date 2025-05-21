@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 
 
 
@@ -16,6 +16,16 @@ class FoodgramUser(AbstractUser):
         verbose_name="e-mail",
         max_length=254
     )
+    username = models.CharField(
+        max_length=150,
+        validators=(RegexValidator(
+            regex=r'^[\w.@+-]+\Z',
+            message='Имя пользователя содержит недопустимые символы'
+            ),
+        )
+    )
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
     REQUIRED_FIELDS = ["first_name", "last_name", 'username']
     USERNAME_FIELD = 'email'
 

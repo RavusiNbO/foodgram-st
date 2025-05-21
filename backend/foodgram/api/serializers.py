@@ -8,6 +8,7 @@ from djoser.serializers import SetPasswordSerializer
 from rest_framework.validators import UniqueTogetherValidator
 from .validators import validate_not_empty
 from djoser.serializers import UserSerializer as DjoserUserSerializer, UserCreateSerializer
+from rest_framework import exceptions
 
 
 User = get_user_model()
@@ -192,14 +193,22 @@ class RecipeSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, recipe, validated_data):
+        if not self.context.get("request").user.is_authenticated:
+            raise exceptions.NotAuthenticated()
+        if self.context.get("request").user != recipe.author:
+            raise exceptions.PermissionDenied()
+        amount_set = self.context.get("request").data.get("ingredients")
+        if not amount_set:
+            raise exceptions.ValidationError()
         ingredients_data = validated_data.pop("products")
-        super().update(ingredients_data)
+        recipe = super().update(recipe, validated_data)
 
         if ingredients_data is not None:
             recipe.products.all().delete()
         self.create_products(recipe, ingredients_data)
 
         return recipe
+    
 
     def get_is_favorited(self, obj):
         request = self.context.get("request")
