@@ -3,8 +3,7 @@ from rest_framework.response import Response
 from recipes import models
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
-from rest_framework.decorators import action
-from rest_framework.decorators import permission_classes as drf_permission_classes
+from rest_framework.decorators import action, permission_classes
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -26,20 +25,23 @@ User = get_user_model()
 
 class FoodgramUserViewSet(UserViewSet):
     pagination_class = pagination.LimitOffsetPagination
-    serializer_classes = {
-        'avatar': serializers.AvatarSerializer,
-        'set_password': serializers.FoodgramSetPasswordSerializer,
-        'subscriptions': serializers.FoodgramUserWithRecipesSerializer,
-        'subscribe': serializers.FoodgramUserWithRecipesSerializer,
-        'create': serializers.CreateFoodgramUserSerializer,
-        'default': serializers.FoodgramUserSerializer,
-    }
-    permission_classes_by_action = {
-        'default': [permissions.IsAuthenticated],
-        'list': [permissions.AllowAny],
-        'retrieve': [permissions.AllowAny],
-        'create': [permissions.AllowAny],
-    }
+
+    def get_serializer_class(self):
+        if self.action == 'avatar':
+            return serializers.AvatarSerializer
+        if self.action == 'set_password':
+            return serializers.FoodgramSetPasswordSerializer
+        if self.action == 'subscriptions' or self.action == 'subscribe':
+            return serializers.FoodgramUserWithRecipesSerializer
+        if self.request.method == "POST":
+            return serializers.CreateFoodgramUserSerializer
+        return serializers.FoodgramUserSerializer
+
+    def get_permissions(self):
+        """Переопределяем права для отдельных действий."""
+        if self.request.method == "GET" and not self.action == 'me':
+            return [permissions.AllowAny()] 
+        return super().get_permissions()  
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -47,7 +49,7 @@ class FoodgramUserViewSet(UserViewSet):
         return context
 
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
+    @permission_classes((permissions.IsAuthenticated,))
     @action(detail=False, methods=["put", "delete"], url_path="me/avatar")
     def avatar(self, request, *args, **kwargs):
         user = request.user
@@ -63,7 +65,7 @@ class FoodgramUserViewSet(UserViewSet):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
+    @permission_classes((permissions.IsAuthenticated,))
     @action(methods=["GET"], detail=False, url_path="subscriptions")
     def subscriptions(self, request, *args, **kwargs):
         user = request.user
@@ -74,7 +76,7 @@ class FoodgramUserViewSet(UserViewSet):
         )
         return self.get_paginated_response(data=serializier.data)
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
+    @permission_classes((permissions.IsAuthenticated,))
     @action(methods=["POST", "DELETE"], detail=True, url_path="subscribe")
     def subscribe(self, request, id):
         follower = request.user
@@ -104,14 +106,25 @@ class FoodgramUserViewSet(UserViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = models.Recipe.objects.all()
     serializer_class = serializers.RecipeSerializer
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [
+        DjangoFilterBackend,
+    ]
     filterset_class = RecipeFilter
     pagination_class = PageLimitPagination
-    permission_classes = [permissions.AllowAny]  
-    serializer_action_classes = {
-        'favorite': serializers.RecipeFollowCartSerializer,
-        'shopping_cart': serializers.RecipeFollowCartSerializer,
-    }
+
+    def get_permissions(self):
+        if self.action in [
+            "Favorite",
+            "shopping_cart",
+            "download_shopping_cart",
+        ] or self.request.method in ["POST", "PATCH", "DELETE"]:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get_serializer_class(self):
+        if self.action == 'favorite' or self.action == 'shopping_cart':
+            return serializers.RecipeFollowCartSerializer
+        return serializers.RecipeSerializer
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -119,63 +132,87 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
+        if not self.request.user.is_authenticated:
+            raise exceptions.NotAuthenticated()
         serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        if not self.request.user.is_authenticated:
+            raise exceptions.NotAuthenticated()
+        if self.request.user != serializer.instance.author:
+            raise exceptions.PermissionDenied()
+        amount_set = self.request.data.get("ingredients")
+        if not amount_set:
+            raise exceptions.ValidationError()
+
+    def perform_destroy(self, serializer):
+        if not self.request.user.is_authenticated:
+            raise exceptions.NotAuthenticated()
+        if self.request.user != serializer.author:
+            raise exceptions.PermissionDenied()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(
+                page, many=True, context=self.get_serializer_context()
+            )
+            return self.get_paginated_response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="get-link")
     def get_link(self, request, *args, **kwargs):
         res = request.build_absolute_uri().split("get-link")[0]
         return Response({"short-link": res}, status=status.HTTP_200_OK)
 
+
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
 
         if self.request.method == "POST":
-            obj, created = model.objects.get_or_create(
-                user=self.request.user,
-                recipe=recipe
-            )
+            object, created = model.objects.get_or_create(user=self.request.user,
+                recipe=recipe)
             if not created:
                 raise exceptions.ValidationError()
 
-            serializer = self.serializer_action_classes.get(
-                self.action,
-                self.serializer_class
-            )(
-                obj.recipe, 
-                context=self.get_serializer_context()
+            new = object.recipe
+            serializer = self.get_serializer_class()(
+                new, context=self.get_serializer_context()
             )
             return Response(
                 data=serializer.data,
                 status=status.HTTP_201_CREATED
             )
+
         else:
             try:
-                obj = model.objects.get(recipe=recipe, user=self.request.user)
+                object = model.objects.get(recipe=recipe, user=self.request.user)
             except ObjectDoesNotExist:
-                raise exceptions.ValidationError()
-            obj.delete()
+                raise exceptions.ValidationError
+            object.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    
+
+    @permission_classes([permissions.IsAuthenticated])
     @action(detail=True, methods=["post", "delete"])
-    @drf_permission_classes((permissions.IsAuthenticated,))
     def favorite(self, request, pk):
         return self.add_delete_fav_cart(Favorite, pk)
 
-    
+    @permission_classes([permissions.IsAuthenticated])
     @action(detail=True, methods=["post", "delete"])
-    @drf_permission_classes((permissions.IsAuthenticated,))
     def shopping_cart(self, request, pk):
         return self.add_delete_fav_cart(Cart, pk)
 
-    
+    @permission_classes([permissions.IsAuthenticated])
     @action(
         methods=["get"],
         detail=False,
         url_path="download_shopping_cart",
-        renderer_classes=[CSVRenderer],
+        renderer_classes=[
+            CSVRenderer,
+        ],
     )
-    @drf_permission_classes((permissions.IsAuthenticated,))
     def download_shopping_cart(self, request):
         cart_items = models.Cart.objects.filter(user=request.user).select_related('recipe', 'recipe__author')
         
@@ -204,7 +241,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         writer.writerow(["Рецепты:"])
         for recipe in sorted(recipes):
             writer.writerow([f"- {recipe}"])
-
+        
         csv_buffer = BytesIO(buffer.getvalue().encode('utf-8'))
         
         return FileResponse(
