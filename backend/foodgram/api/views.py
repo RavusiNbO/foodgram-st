@@ -1,16 +1,16 @@
 from . import serializers
 from rest_framework.response import Response
 from recipes import models
-from django.urls import reverse
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
 from rest_framework.decorators import action
-from rest_framework.decorators import (permission_classes
-                                       as drf_permission_classes)
+from rest_framework.decorators import (api_view,
+                                       permission_classes as
+                                       drf_permission_classes)
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from rest_framework import exceptions
 from rest_framework_csv.renderers import CSVRenderer
 from rest_framework import permissions
@@ -141,16 +141,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=["get"], url_path="get-link")
-    def get_short_link(self, request, pk=None):
-        recipe = self.get_object()
-        relative_url = reverse('recipe_short_link', kwargs={'pk': recipe.id})
-        full_url = request.build_absolute_uri(relative_url)
-        
-        return Response({
-            "short-link": full_url,
-        }, status=status.HTTP_200_OK)
-
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
 
@@ -256,5 +246,11 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = IngredientFilter
 
 
-def redirect_recipe_by_short_link(request, pk):
-    return redirect(f'/api/recipes/{pk}/')
+@api_view(["GET"])
+def get_short_link(request, pk=None):
+    res = request.path.split('/')
+    res = '/' + '/'.join(res[:len(res) - 1])
+    print(res)
+    return Response({
+        "short-link": res,
+    }, status=status.HTTP_200_OK)
