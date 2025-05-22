@@ -5,13 +5,14 @@ from recipes.models import Follow, Favorite, Cart
 from django.core.files.base import ContentFile
 import base64
 from djoser.serializers import SetPasswordSerializer
-from rest_framework.validators import UniqueTogetherValidator
 from .validators import validate_not_empty
-from djoser.serializers import UserSerializer as DjoserUserSerializer, UserCreateSerializer
+from djoser.serializers import UserSerializer as DjoserUserSerializer
+from djoser.serializers import UserCreateSerializer
 from rest_framework import exceptions
 
 
 User = get_user_model()
+
 
 class FoodgramSetPasswordSerializer(SetPasswordSerializer): 
     class Meta: 
@@ -49,13 +50,9 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = ("avatar",)
 
 
-
-
-
 class FoodgramUserSerializer(DjoserUserSerializer):
     is_subscribed = serializers.SerializerMethodField()
     avatar = Base64Serializer(required=False)
-
 
     class Meta:
         model = User
@@ -87,8 +84,16 @@ class FoodgramUserSerializer(DjoserUserSerializer):
 
 class CreateFoodgramUserSerializer(UserCreateSerializer):
     password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(required=True, validators=[validate_not_empty], max_length=150)
-    last_name = serializers.CharField(required=True, validators=[validate_not_empty], max_length=150)
+    first_name = serializers.CharField(
+        required=True,
+        validators=[validate_not_empty],
+        max_length=150
+    )
+    last_name = serializers.CharField(
+        required=True,
+        validators=[validate_not_empty], 
+        max_length=150
+    )
 
     class Meta:
         model = User
@@ -109,8 +114,8 @@ class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
 
     class Meta:
         model = User
-        fields = FoodgramUserSerializer.Meta.fields + ['recipes', 'recipes_count']
-    
+        fields = (FoodgramUserSerializer.Meta.fields 
+                  + ['recipes', 'recipes_count'])
 
     def get_recipes(self, obj): 
         request = self.context.get("request") 
@@ -118,15 +123,11 @@ class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
             return [] 
  
         recipes_limit = int(request.GET.get("recipes_limit", 10**10))
-        recipes = models.Recipe.objects.filter(author=obj)[: int(recipes_limit)]
+        recipes = models.Recipe.objects.filter(
+            author=obj
+        )[: int(recipes_limit)]
  
         return RecipeFollowCartSerializer(recipes, many=True).data 
- 
-    
-
-
-    
-
 
 
 class RecipeProductSerializer(serializers.ModelSerializer):
@@ -142,7 +143,6 @@ class RecipeProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ProductInRecipe
         fields = ["id", "name", "measurement_unit", "amount"]
-
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -208,7 +208,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         self.create_products(recipe, ingredients_data)
 
         return recipe
-    
 
     def get_is_favorited(self, obj):
         request = self.context.get("request")

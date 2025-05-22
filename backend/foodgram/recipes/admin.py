@@ -1,14 +1,13 @@
 from django.contrib import admin
-from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.utils.safestring import mark_safe
 from . import models
-from django.core.validators import RegexValidator
 
 
 class ProductInRecipeInline(admin.StackedInline):
     model = models.ProductInRecipe
     extra = 1
+
 
 @admin.register(models.Recipe)
 class RecipeAdmin(admin.ModelAdmin):
@@ -30,12 +29,12 @@ class RecipeAdmin(admin.ModelAdmin):
     fav_count.short_description = 'Добавления в избранное'
 
     def ingredients_list(self, recipe):
-        return ", ".join([ingredient.name for ingredient in recipe.ingredients.all()])
+        return ", ".join(
+            [ingredient.name for ingredient in recipe.ingredients.all()])
 
     @mark_safe
     def image(self, recipe):
         return f'<img src="{recipe.image}">'
-    
 
 
 @admin.register(models.Ingredient)
@@ -45,8 +44,8 @@ class IngredientAdmin(admin.ModelAdmin):
     list_filter = ('measurement_unit',)
 
     def recipe_count(self, ingredient):
-        return models.ProductInRecipe.objects.filter(ingredient=ingredient).count()
-
+        return models.ProductInRecipe.objects.filter(
+            ingredient=ingredient).count()
 
 
 @admin.register(models.FoodgramUser)
@@ -77,10 +76,11 @@ class UserAdminka(UserAdmin):
 
     def FIO(self, user):
         return f'{user.last_name} {user.first_name}'
-    
+
     @mark_safe
     def avatar(self, user):
         return f'<img src="{user.avatar}">'
+
 
 admin.site.register(models.ProductInRecipe)
 admin.site.register(models.Cart)

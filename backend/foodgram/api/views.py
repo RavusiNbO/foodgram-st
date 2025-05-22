@@ -4,7 +4,9 @@ from recipes import models
 from django.urls import reverse
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
-from rest_framework.decorators import action, permission_classes as drf_permission_classes
+from rest_framework.decorators import action
+from rest_framework.decorators import (permission_classes
+                                       as drf_permission_classes)
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -28,6 +30,15 @@ User = get_user_model()
 class FoodgramUserViewSet(UserViewSet):
     pagination_class = pagination.LimitOffsetPagination
 
+    def get_permissions(self): 
+        if self.action in ["list", "retrieve", "create"]: 
+            return [ 
+                permissions.AllowAny(), 
+            ] 
+        return [ 
+            permissions.IsAuthenticated(), 
+        ]
+
     def get_serializer_class(self):
         if self.action == 'avatar':
             return serializers.AvatarSerializer
@@ -39,16 +50,10 @@ class FoodgramUserViewSet(UserViewSet):
             return serializers.CreateFoodgramUserSerializer
         return serializers.FoodgramUserSerializer
 
-    def get_permissions(self):
-        if self.request.method == "GET" and not self.action == 'me':
-            return [permissions.AllowAny()] 
-        return super().get_permissions()  
-
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
-
 
     @drf_permission_classes((permissions.IsAuthenticated,))
     @action(detail=False, methods=["put", "delete"], url_path="me/avatar")
@@ -84,7 +89,10 @@ class FoodgramUserViewSet(UserViewSet):
         user = get_object_or_404(User, pk=id)
         
         if request.method == "POST":
-            follow, created = Follow.objects.get_or_create(follower=follower, user=user)
+            follow, created = Follow.objects.get_or_create(
+                follower=follower,
+                user=user
+            )
             if (not created or follower == user):
                 raise exceptions.ValidationError()
             
@@ -113,9 +121,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     pagination_class = PageLimitPagination
     permission_classes = [RecipePermission,]
 
-    def get_serializer_class(self): 
-        if self.action == "Favorite": 
-            return serializers.RecipeFollowSerializer 
+    def get_serializer_class(self):
+        if self.action == 'favorite' or self.action == 'shopping_cart':
+            return serializers.RecipeFollowCartSerializer
         return serializers.RecipeSerializer
 
     def get_serializer_context(self):
@@ -124,8 +132,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
-        if not self.request.user.is_authenticated:
-            raise exceptions.NotAuthenticated()
         serializer.save(author=self.request.user)
 
     def destroy(self, serializer, pk):
@@ -134,7 +140,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             raise exceptions.PermissionDenied()
         recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
     @action(detail=True, methods=["get"], url_path="get-link")
     def get_short_link(self, request, pk=None):
@@ -146,12 +151,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             "short-link": full_url,
         }, status=status.HTTP_200_OK)
 
-
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
 
         if self.request.method == "POST":
-            object, created = model.objects.get_or_create(user=self.request.user,
+            object, created = model.objects.get_or_create(
+                user=self.request.user,
                 recipe=recipe)
             if not created:
                 raise exceptions.ValidationError()
@@ -167,12 +172,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         else:
             try:
-                object = model.objects.get(recipe=recipe, user=self.request.user)
+                object = model.objects.get(
+                    recipe=recipe,
+                    user=self.request.user
+                )
             except ObjectDoesNotExist:
                 raise exceptions.ValidationError
             object.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-
 
     @drf_permission_classes([permissions.IsAuthenticated])
     @action(detail=True, methods=["post", "delete"])
@@ -194,12 +201,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ],
     )
     def download_shopping_cart(self, request):
-        cart_items = models.Cart.objects.filter(user=request.user).select_related('recipe', 'recipe__author')
+        cart_items = models.Cart.objects.filter(
+            user=request.user).select_related('recipe', 'recipe__author')
         
         buffer = StringIO()
         writer = csv.writer(buffer)
         
-        writer.writerow([f"Список покупок ({datetime.now().strftime('%Y-%m-%d %H:%M')}"])
+        writer.writerow(
+            [f"Список покупок ({datetime.now().strftime('%Y-%m-%d %H:%M')}"])
         writer.writerow([])
         
         writer.writerow(['№', 'Ингредиент', 'Количество', 'Единица измерения'])
@@ -208,13 +217,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipes = set()
         
         for item in cart_items:
-            recipes.add(f"{item.recipe.name} (автор: {item.recipe.author.username})")
+            recipes.add(
+                f"{item.recipe.name} (автор: {item.recipe.author.username})")
             for product in item.recipe.products.all():
-                key = (product.ingredient.name, product.ingredient.measurement_unit)
+                key = (
+                    product.ingredient.name,
+                    product.ingredient.measurement_unit
+                )
                 ingredients[key] = ingredients.get(key, 0) + product.amount
         
         sorted_ingredients = sorted(ingredients.items(), key=lambda x: x[0][0])
-        for idx, ((name, unit), amount) in enumerate(sorted_ingredients, start=1):
+        for idx, ((name, unit), amount) in enumerate(
+            sorted_ingredients,
+            start=1
+        ):
             writer.writerow([idx, name.capitalize(), amount, unit])
         
         writer.writerow([])
@@ -239,6 +255,6 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
     filterset_class = IngredientFilter
 
+
 def redirect_recipe_by_short_link(request, pk):
-    recipe = get_object_or_404(models.Recipe, pk=pk)
     return redirect(f'/api/recipes/{pk}/')

@@ -3,7 +3,6 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, RegexValidator
 
 
-
 class FoodgramUser(AbstractUser):
     avatar = models.ImageField(
         "Аватар",
@@ -21,7 +20,7 @@ class FoodgramUser(AbstractUser):
         validators=(RegexValidator(
             regex=r'^[\w.@+-]+\Z',
             message='Имя пользователя содержит недопустимые символы'
-            ),
+        ),
         )
     )
     first_name = models.CharField(max_length=150)
@@ -37,7 +36,9 @@ class FoodgramUser(AbstractUser):
     def __str__(self):
         return self.username
     
+
 User = FoodgramUser
+
 
 class Ingredient(models.Model):
     name = models.CharField("Название", max_length=100, null=False)
@@ -50,12 +51,10 @@ class Ingredient(models.Model):
     class Meta:
         verbose_name = "Ингредиент"
         verbose_name_plural = "Ингредиенты"
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name} - {self.measurement_unit}"
-    
-    class Meta:
-        ordering = ['name']
 
 
 class Recipe(models.Model):
@@ -70,7 +69,10 @@ class Recipe(models.Model):
         validators=[MinValueValidator(0),]
     )
     ingredients = models.ManyToManyField(
-        Ingredient, verbose_name="Ингредиенты", blank=False, through="ProductInRecipe"
+        Ingredient,
+        verbose_name="Ингредиенты",
+        blank=False,
+        through="ProductInRecipe"
     )
     author = models.ForeignKey(
         User,
@@ -114,7 +116,6 @@ class ProductInRecipe(models.Model):
         verbose_name_plural = "Продукты в рецепте"
 
 
-
 class Follow(models.Model):
     follower = models.ForeignKey(
         FoodgramUser,
@@ -138,7 +139,6 @@ class Follow(models.Model):
                 name='unique_user_follower'
             )
         ]
-        #serial
 
     def __str__(self):
         return f'{self.follower.username} - {self.user.username}'
@@ -158,7 +158,6 @@ class FavCartBase(models.Model):
         related_name="%(class)s_recipe"
     )
 
-
     class Meta:
         abstract = True
         constraints = [
@@ -171,19 +170,16 @@ class FavCartBase(models.Model):
     def __str__(self):
         return f'{self.user.username} - {self.recipe.name}'
 
+
 class Favorite(FavCartBase):
-    
 
     class Meta:
         verbose_name = "Избранное"
         verbose_name_plural = "Избранные"
-        
 
 
 class Cart(FavCartBase):
-    
 
     class Meta:
         verbose_name = "Корзина покупок"
         verbose_name_plural = "Корзины покупок"
-

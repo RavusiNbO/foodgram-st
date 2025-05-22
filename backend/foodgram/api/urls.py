@@ -10,5 +10,9 @@ router.register("users", FoodgramUserViewSet)
 urlpatterns = [
     path("", include(router.urls)),
     path("auth/", include("djoser.urls.authtoken")),
-    path('r/<int:pk>/', redirect_recipe_by_short_link, name='recipe_short_link'),
+    path(
+        'r/<int:pk>/',
+        redirect_recipe_by_short_link,
+        name='recipe_short_link'
+    ),
 ]
