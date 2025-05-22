@@ -80,7 +80,7 @@ class FoodgramUserSerializer(DjoserUserSerializer):
                 follower=request.user, 
                 user=obj).exists() 
         return False
-    
+
 
 class CreateFoodgramUserSerializer(UserCreateSerializer):
     password = serializers.CharField(write_only=True)
@@ -106,6 +106,13 @@ class CreateFoodgramUserSerializer(UserCreateSerializer):
             "password"
         ]
         required_fields = fields
+
+    def validate(self, data):
+        if (models.User.objects.filter(username=data.get("username")).exists()
+                or models.User.objects.filter(
+                    email=data.get("email")).exists()):
+            raise exceptions.ValidationError()
+        return data
 
 
 class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
@@ -172,7 +179,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 "Ингредиенты не должны повторяться!"
             )
         return value
-    
+
     def create_products(self, recipe, ingredients_data):
         models.ProductInRecipe.objects.bulk_create(
             [
@@ -189,7 +196,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         recipe = super().create(validated_data)
 
         self.create_products(recipe, ingredients_data)
-        
+
         return recipe
 
     def update(self, recipe, validated_data):
