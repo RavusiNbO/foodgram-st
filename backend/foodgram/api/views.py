@@ -4,8 +4,7 @@ from recipes import models
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
 from rest_framework.decorators import action
-from rest_framework.decorators import (api_view,
-                                       permission_classes as
+from rest_framework.decorators import (permission_classes as
                                        drf_permission_classes)
 from djoser.views import UserViewSet
 from rest_framework import status
@@ -245,12 +244,3 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
     filterset_class = IngredientFilter
 
-
-@api_view(["GET"])
-def get_short_link(request, pk=None):
-    res = request.path.split('/')
-    res = '/' + '/'.join(res[:len(res) - 1])
-    print(res)
-    return Response({
-        "short-link": res,
-    }, status=status.HTTP_200_OK)
