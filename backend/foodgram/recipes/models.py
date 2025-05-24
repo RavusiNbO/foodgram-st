@@ -12,27 +12,27 @@ class FoodgramUser(AbstractUser):
     )
     email = models.EmailField(
         unique=True,
-        verbose_name="e-mail",
+        verbose_name="Электронная почта",
         max_length=254
     )
     username = models.CharField(
         max_length=150,
         unique=True,
+        verbose_name="Ник пользователя",
         validators=(RegexValidator(
-            regex=r'^[\w.@+-]+\Z',
-            message='Имя пользователя содержит недопустимые символы'
+            regex=r'^[\w.@+-]+\Z'
         ),
         )
     )
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=150, verbose_name="Имя")
+    last_name = models.CharField(max_length=150, verbose_name="Фамилия")
     REQUIRED_FIELDS = ["first_name", "last_name", 'username']
     USERNAME_FIELD = 'email'
 
     class Meta:
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
-        ordering = ['-id']
+        ordering = ['username']
 
     def __str__(self):
         return self.username
@@ -42,10 +42,10 @@ User = FoodgramUser
 
 
 class Ingredient(models.Model):
-    name = models.CharField("Название", max_length=100, null=False)
-    measurement_unit = models.CharField(
+    name = models.TextField("Название", null=False)
+
+    measurement_unit = models.TextField(
         "Единица измерения",
-        max_length=15,
         null=False
     )
 
@@ -67,13 +67,14 @@ class Recipe(models.Model):
     text = models.TextField("Описание", null=False, blank=False)
     cooking_time = models.IntegerField(
         "Время приготовления",
-        validators=[MinValueValidator(0),]
+        validators=[MinValueValidator(1),]
     )
     ingredients = models.ManyToManyField(
         Ingredient,
         verbose_name="Ингредиенты",
         blank=False,
-        through="ProductInRecipe"
+        through="ProductInRecipe",
+        related_name="recipes"
     )
     author = models.ForeignKey(
         User,
@@ -85,7 +86,7 @@ class Recipe(models.Model):
     class Meta:
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
-        ordering = ["-id"]
+        ordering = ["name"]
 
     def __str__(self):
         return f"{self.name} - {self.author.username}"
@@ -106,7 +107,7 @@ class ProductInRecipe(models.Model):
     )
     amount = models.IntegerField(
         "Количество",
-        validators=[MinValueValidator(0),]
+        validators=[MinValueValidator(1),]
     )
 
     def __str__(self):
@@ -150,13 +151,13 @@ class FavCartBase(models.Model):
         FoodgramUser,
         on_delete=models.CASCADE,
         verbose_name="Юзер",
-        related_name="%(class)s_user"
+        related_name="%(class)ss"
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         verbose_name='Рецепт',
-        related_name="%(class)s_recipe"
+        related_name="%(class)ss"
     )
 
     class Meta:
@@ -164,7 +165,7 @@ class FavCartBase(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'recipe'],
-                name='unique_user_recipe'
+                name='unique_%(class)s_recipe'
             )
         ]
 
@@ -174,13 +175,13 @@ class FavCartBase(models.Model):
 
 class Favorite(FavCartBase):
 
-    class Meta:
+    class Meta(FavCartBase.Meta):
         verbose_name = "Избранное"
         verbose_name_plural = "Избранные"
 
 
 class Cart(FavCartBase):
 
-    class Meta:
+    class Meta(FavCartBase.Meta):
         verbose_name = "Корзина покупок"
         verbose_name_plural = "Корзины покупок"

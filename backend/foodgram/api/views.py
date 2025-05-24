@@ -22,31 +22,38 @@ import csv
 from io import StringIO, BytesIO
 from django.http import FileResponse
 from .permissions import RecipePermission
+from djoser.serializers import SetPasswordSerializer, UserCreateSerializer
 
 User = get_user_model()
 
 
 class FoodgramUserViewSet(UserViewSet):
     pagination_class = pagination.LimitOffsetPagination
+    # permission_classes = (AuthorOrReading,)
+    # Каким образом возможно избежать этих двух методов?
+    # Если не переопределить метод get_permissions класса джосера,
+    # то тест get_user_list будет возвращать 401 вне зависимости от того, что 
+    # написано в кастомном пермишене, т.к. в джосере для этого запроса
+    # установлен пермишен CurrentUserOrAdmin.
 
-    def get_permissions(self): 
-        if self.action in ["list", "retrieve", "create"]: 
-            return [ 
-                permissions.AllowAny(), 
-            ] 
-        return [ 
-            permissions.IsAuthenticated(), 
-        ]
+    def get_permissions(self):  
+        if self.action in ["list", "retrieve", "create"]:  
+            return [  
+                permissions.AllowAny(),  
+            ]  
+        return [  
+            permissions.IsAuthenticated(),  
+        ] 
 
     def get_serializer_class(self):
         if self.action == 'avatar':
             return serializers.AvatarSerializer
         if self.action == 'set_password':
-            return serializers.FoodgramSetPasswordSerializer
+            return SetPasswordSerializer
         if self.action == 'subscriptions' or self.action == 'subscribe':
             return serializers.FoodgramUserWithRecipesSerializer
         if self.request.method == "POST":
-            return serializers.CreateFoodgramUserSerializer
+            return UserCreateSerializer
         return serializers.FoodgramUserSerializer
 
     def get_serializer_context(self):
@@ -54,7 +61,6 @@ class FoodgramUserViewSet(UserViewSet):
         context["request"] = self.request
         return context
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
     @action(detail=False, methods=["put", "delete"], url_path="me/avatar")
     def avatar(self, request, *args, **kwargs):
         user = request.user
@@ -70,7 +76,6 @@ class FoodgramUserViewSet(UserViewSet):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
     @action(methods=["GET"], detail=False, url_path="subscriptions")
     def subscriptions(self, request, *args, **kwargs):
         user = request.user
@@ -81,7 +86,6 @@ class FoodgramUserViewSet(UserViewSet):
         )
         return self.get_paginated_response(data=serializier.data)
 
-    @drf_permission_classes((permissions.IsAuthenticated,))
     @action(methods=["POST", "DELETE"], detail=True, url_path="subscribe")
     def subscribe(self, request, id):
         follower = request.user
@@ -93,7 +97,10 @@ class FoodgramUserViewSet(UserViewSet):
                 user=user
             )
             if (not created or follower == user):
-                raise exceptions.ValidationError()
+                raise exceptions.ValidationError(
+                    '''Нельзя подписываться на себя 
+                    так же как и нельзя подписаться два раза!'''
+                )
             
             serializer = self.get_serializer_class()(
                 user, context=self.get_serializer_context()
@@ -102,13 +109,12 @@ class FoodgramUserViewSet(UserViewSet):
                 data=serializer.data,
                 status=status.HTTP_201_CREATED
             )
-        else:
-            try:
-                obj = Follow.objects.get(follower=follower, user=user)
-            except ObjectDoesNotExist:
-                raise exceptions.ValidationError()
-            obj.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        try: 
+            obj = Follow.objects.get(follower=follower, user=user) 
+        except ObjectDoesNotExist: 
+            raise exceptions.ValidationError() 
+        obj.delete() 
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -122,7 +128,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'favorite' or self.action == 'shopping_cart':
-            return serializers.RecipeFollowCartSerializer
+            return serializers.AlterRecipeSerializer
         return serializers.RecipeSerializer
 
     def get_serializer_context(self):
@@ -133,22 +139,18 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def destroy(self, serializer, pk):
-        recipe = get_object_or_404(models.Recipe, pk=pk)
-        if self.request.user != recipe.author:
-            raise exceptions.PermissionDenied()
-        recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
+        if not self.request.user.is_authenticated:
+            raise exceptions.NotAuthenticated()
 
         if self.request.method == "POST":
             object, created = model.objects.get_or_create(
                 user=self.request.user,
                 recipe=recipe)
-            if not created:
-                raise exceptions.ValidationError()
+            if not created: 
+                raise exceptions.ValidationError(
+                    "Рецепт уже есть в корзине покупок!")
 
             new = object.recipe
             serializer = self.get_serializer_class()(
@@ -158,17 +160,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 data=serializer.data,
                 status=status.HTTP_201_CREATED
             )
-
-        else:
-            try:
-                object = model.objects.get(
-                    recipe=recipe,
-                    user=self.request.user
-                )
-            except ObjectDoesNotExist:
-                raise exceptions.ValidationError
-            object.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        try: 
+            object = model.objects.get( 
+                recipe=recipe, 
+                user=self.request.user 
+            ) 
+        except (ObjectDoesNotExist, TypeError):
+            raise exceptions.ValidationError 
+        object.delete() 
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @drf_permission_classes([permissions.IsAuthenticated])
     @action(detail=True, methods=["post", "delete"])
@@ -179,6 +179,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post", "delete"])
     def shopping_cart(self, request, pk):
         return self.add_delete_fav_cart(Cart, pk)
+    
+    @action(detail=True, methods=["get"], url_path="get-link")
+    def get_short_link(self, request, pk=None):
+        res = ''.join(
+            request.build_absolute_uri().split("get-link")[0].split('/api'))
+
+        return Response({
+            "short-link": res,
+        }, status=status.HTTP_200_OK)
 
     @drf_permission_classes([permissions.IsAuthenticated])
     @action(
@@ -190,8 +199,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ],
     )
     def download_shopping_cart(self, request):
-        cart_items = models.Cart.objects.filter(
-            user=request.user).select_related('recipe', 'recipe__author')
+        cart_items = request.user.carts.select_related(
+            'recipe', 'recipe__author')
         
         buffer = StringIO()
         writer = csv.writer(buffer)

@@ -17,17 +17,11 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from recipes.views import get_short_link
 
-# from api.views import CustomTokenCreateView
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path(
-        'api/recipes/<int:pk>/get-link/',
-        get_short_link,
-        name='get_short_link'
-    ),
     path("api/", include("api.urls")),
+    path('', include("recipes.urls")),
 ]

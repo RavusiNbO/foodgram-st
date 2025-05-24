@@ -4,19 +4,11 @@ from recipes import models
 from recipes.models import Follow, Favorite, Cart
 from django.core.files.base import ContentFile
 import base64
-from djoser.serializers import SetPasswordSerializer
-from .validators import validate_not_empty
 from djoser.serializers import UserSerializer as DjoserUserSerializer
-from djoser.serializers import UserCreateSerializer
 from rest_framework import exceptions
 
 
 User = get_user_model()
-
-
-class FoodgramSetPasswordSerializer(SetPasswordSerializer): 
-    class Meta: 
-        fields = ["current_password", "new_password"]
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -25,7 +17,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = ["name", "measurement_unit", "id"]
 
 
-class RecipeFollowCartSerializer(serializers.ModelSerializer):
+class AlterRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Recipe
         fields = ("id", "name", "cooking_time", "image")
@@ -65,13 +57,7 @@ class FoodgramUserSerializer(DjoserUserSerializer):
             "is_subscribed",
             "id",
         ]
-        required_fields = [
-            'password',
-            'username',
-            'email',
-            'first_name',
-            'last_name',
-        ]
+        required_fields = fields
 
     def get_is_subscribed(self, obj): 
         request = self.context.get("request") 
@@ -80,39 +66,10 @@ class FoodgramUserSerializer(DjoserUserSerializer):
                 follower=request.user, 
                 user=obj).exists() 
         return False
-
-
-class CreateFoodgramUserSerializer(UserCreateSerializer):
-    password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(
-        required=True,
-        validators=[validate_not_empty],
-        max_length=150
-    )
-    last_name = serializers.CharField(
-        required=True,
-        validators=[validate_not_empty], 
-        max_length=150
-    )
-
-    class Meta:
-        model = User
-        fields = [
-            "email",
-            "first_name",
-            "username",
-            "last_name",
-            "id",
-            "password"
-        ]
-        required_fields = fields
-
+    
     def validate(self, data):
-        if (models.User.objects.filter(username=data.get("username")).exists()
-                or models.User.objects.filter(
-                    email=data.get("email")).exists()):
+        if not self.instance:
             raise exceptions.ValidationError()
-        return data
 
 
 class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
@@ -123,6 +80,7 @@ class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
         model = User
         fields = (FoodgramUserSerializer.Meta.fields 
                   + ['recipes', 'recipes_count'])
+        read_only_fields = fields
 
     def get_recipes(self, obj): 
         request = self.context.get("request") 
@@ -134,7 +92,7 @@ class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
             author=obj
         )[: int(recipes_limit)]
  
-        return RecipeFollowCartSerializer(recipes, many=True).data 
+        return AlterRecipeSerializer(recipes, many=True).data 
 
 
 class RecipeProductSerializer(serializers.ModelSerializer):
@@ -182,36 +140,24 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def create_products(self, recipe, ingredients_data):
         models.ProductInRecipe.objects.bulk_create(
-            [
-                models.ProductInRecipe(
-                    recipe=recipe,
-                    ingredient=ingredient_data["ingredient"],
-                    amount=ingredient_data["amount"],
-                ) for ingredient_data in ingredients_data
-            ]
+            models.ProductInRecipe(
+                recipe=recipe,
+                ingredient=ingredient_data["ingredient"],
+                amount=ingredient_data["amount"],
+            ) for ingredient_data in ingredients_data
         )
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop("products")
         recipe = super().create(validated_data)
-
         self.create_products(recipe, ingredients_data)
 
         return recipe
 
     def update(self, recipe, validated_data):
-        if not self.context.get("request").user.is_authenticated:
-            raise exceptions.NotAuthenticated()
-        if self.context.get("request").user != recipe.author:
-            raise exceptions.PermissionDenied()
-        amount_set = self.context.get("request").data.get("ingredients")
-        if not amount_set:
-            raise exceptions.ValidationError()
         ingredients_data = validated_data.pop("products")
         recipe = super().update(recipe, validated_data)
-
-        if ingredients_data is not None:
-            recipe.products.all().delete()
+        recipe.products.all().delete()
         self.create_products(recipe, ingredients_data)
 
         return recipe
@@ -229,3 +175,10 @@ class RecipeSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return Cart.objects.filter(user=request.user, recipe=obj).exists()
         return False
+    
+    def validate(self, data):
+        if 'products' not in data:
+            raise serializers.ValidationError(
+                {"ingredients": "Это поле обязательно."}
+            )
+        return data

@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.safestring import mark_safe
 from . import models
+from django.contrib.admin import display
 
 
 class ProductInRecipeInline(admin.StackedInline):
@@ -15,22 +16,17 @@ class RecipeAdmin(admin.ModelAdmin):
         'id',
         'name',
         'image',
-        'text',
         'cooking_time',
-        'ingredients_list',
         'author',
         'fav_count'
     )
+    list_filter = ('author',)
     search_fields = ("author__username", "name")
     inlines = (ProductInRecipeInline,)
 
+    @display(description='Добавления в избранное')
     def fav_count(self, recipe):
-        return models.Favorite.objects.filter(recipe=recipe).count()
-    fav_count.short_description = 'Добавления в избранное'
-
-    def ingredients_list(self, recipe):
-        return ", ".join(
-            [ingredient.name for ingredient in recipe.ingredients.all()])
+        return recipe.favorites.count()
 
     @mark_safe
     def image(self, recipe):
@@ -43,9 +39,9 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = ("name", "measurement_unit")
     list_filter = ('measurement_unit',)
 
+    @display(description='Количество рецептов')
     def recipe_count(self, ingredient):
-        return models.ProductInRecipe.objects.filter(
-            ingredient=ingredient).count()
+        return ingredient.products.count()
 
 
 @admin.register(models.FoodgramUser)
@@ -62,18 +58,22 @@ class UserAdminka(UserAdmin):
         'followers_count'
     )
 
+    @display(description='Количество рецептов')
     def recipes_count(self, user):
-        return models.Recipe.objects.filter(author=user).count()
+        return user.recipes.count()
     recipes_count.short_description = 'Количество рецептов'
 
+    @display(description='Количество подписчиков')
     def followers_count(self, user):
-        return models.Follow.objects.filter(user=user).count()
+        return user.follows_user.count()
     followers_count.short_description = 'Количество подписчиков'
 
+    @display(description='Количество подписок')
     def follow_count(self, user):
-        return models.Follow.objects.filter(follower=user).count()
+        return user.follows_follower.count()
     follow_count.short_description = 'Количество подписок'
 
+    @display(description='ФИО')
     def FIO(self, user):
         return f'{user.last_name} {user.first_name}'
 
