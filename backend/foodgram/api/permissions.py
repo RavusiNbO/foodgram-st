@@ -15,11 +15,11 @@ class RecipePermission(permissions.BasePermission):
 
 class AuthorOrReading(permissions.BasePermission):
     def has_permission(self, request, view):
-        if view.action in ["list", "create"]:
+        if view.action in ["list", "create", "retrieve"]:
             return True
         return request.user and request.user.is_authenticated
     
     def has_object_permission(self, request, view, user):
-        if view.action in ["retrieve", "create"]:
+        if view.action == "retrieve":
             return True
         return request.user and request.user.is_authenticated

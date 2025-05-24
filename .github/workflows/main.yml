@@ -6,6 +6,9 @@ on:
       - main
       - new
 
+env:
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
 jobs:
   tests:
     runs-on: ubuntu-latest

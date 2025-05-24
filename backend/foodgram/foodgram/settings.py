@@ -128,8 +128,18 @@ REST_FRAMEWORK = {
 
 DJOSER = {
     "SET_PASSWORD_RETYPE": False,
-    'SERIALIZERS': {
+    'PERMISSIONS': {
+        'user_create': ['rest_framework.permissions.AllowAny'],
+        'user_delete': ['djoser.permissions.CurrentUserOrAdmin'],
+        'user': ["rest_framework.permissions.AllowAny"],
+        'user_list': ["rest_framework.permissions.AllowAny"],
+    },
+    "SERIALIZERS": {
         'set_password': 'djoser.serializers.SetPasswordSerializer',
+        'user_create': 'djoser.serializers.UserCreateSerializer',
+        'user_delete': 'api.serializers.FoodgramUserSerializer',
+        'user': 'api.serializers.FoodgramUserSerializer',
+        'current_user': 'api.serializers.FoodgramUserSerializer',
     }
 }
 # Internationalization

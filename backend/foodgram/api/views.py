@@ -21,40 +21,14 @@ from datetime import datetime
 import csv
 from io import StringIO, BytesIO
 from django.http import FileResponse
-from .permissions import RecipePermission
-from djoser.serializers import SetPasswordSerializer, UserCreateSerializer
+from .permissions import RecipePermission, AuthorOrReading
 
 User = get_user_model()
 
 
 class FoodgramUserViewSet(UserViewSet):
     pagination_class = pagination.LimitOffsetPagination
-    # permission_classes = (AuthorOrReading,)
-    # Каким образом возможно избежать этих двух методов?
-    # Если не переопределить метод get_permissions класса джосера,
-    # то тест get_user_list будет возвращать 401 вне зависимости от того, что 
-    # написано в кастомном пермишене, т.к. в джосере для этого запроса
-    # установлен пермишен CurrentUserOrAdmin.
-
-    def get_permissions(self):  
-        if self.action in ["list", "retrieve", "create"]:  
-            return [  
-                permissions.AllowAny(),  
-            ]  
-        return [  
-            permissions.IsAuthenticated(),  
-        ] 
-
-    def get_serializer_class(self):
-        if self.action == 'avatar':
-            return serializers.AvatarSerializer
-        if self.action == 'set_password':
-            return SetPasswordSerializer
-        if self.action == 'subscriptions' or self.action == 'subscribe':
-            return serializers.FoodgramUserWithRecipesSerializer
-        if self.request.method == "POST":
-            return UserCreateSerializer
-        return serializers.FoodgramUserSerializer
+    permission_classes = (AuthorOrReading,)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -66,7 +40,7 @@ class FoodgramUserViewSet(UserViewSet):
         user = request.user
 
         if request.method == "PUT":
-            serializer = self.get_serializer(user, data=request.data)
+            serializer = serializers.AvatarSerializer(user, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -81,7 +55,7 @@ class FoodgramUserViewSet(UserViewSet):
         user = request.user
         queryset = User.objects.filter(follows_user__follower=user)
         page = self.paginate_queryset(queryset)
-        serializier = self.get_serializer_class()(
+        serializier = serializers.FoodgramUserWithRecipesSerializer(
             page, many=True, context=self.get_serializer_context()
         )
         return self.get_paginated_response(data=serializier.data)
@@ -102,7 +76,7 @@ class FoodgramUserViewSet(UserViewSet):
                     так же как и нельзя подписаться два раза!'''
                 )
             
-            serializer = self.get_serializer_class()(
+            serializer = serializers.FoodgramUserWithRecipesSerializer(
                 user, context=self.get_serializer_context()
             )
             return Response(
