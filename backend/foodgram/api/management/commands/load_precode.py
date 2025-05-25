@@ -7,8 +7,21 @@ class Command(BaseCommand):
     help = 'Импорт данных из прекода'
 
     def handle(self, *args, **options):
-        with open("ingredients.json") as f:
-            file = json.load(f)
-            for i in file:
-                Ingredient.objects.create(**i)
-            self.stdout.write(self.style.SUCCESS('Импорт завершен'))
+        try:
+            with open("ingredients.json") as f:
+                data = json.load(f)
+                Ingredient.objects.bulk_create(
+                    Ingredient(
+                        **i
+                    ) for i in data
+                )
+                self.stdout.write(self.style.SUCCESS(
+                    f'Импорт завершен. Число новых записей - {len(data)}'))
+        except FileNotFoundError:
+            print("Файл не найден. Пожалуйста, убедитесь,", 
+                  "что ingredients.json существует.")
+        except json.JSONDecodeError:
+            print("Ошибка декодирования JSON. Проверьте,",
+                  "что файл содержит корректные данные.")
+        except Exception as e:
+            print(f"Произошла ошибка: {e}")

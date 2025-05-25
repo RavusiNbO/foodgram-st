@@ -150,7 +150,7 @@ class FavCartBase(models.Model):
     user = models.ForeignKey(
         FoodgramUser,
         on_delete=models.CASCADE,
-        verbose_name="Юзер",
+        verbose_name="Пользователь",
         related_name="%(class)ss"
     )
     recipe = models.ForeignKey(

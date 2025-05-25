@@ -3,9 +3,8 @@ from rest_framework.response import Response
 from recipes import models
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
-from rest_framework.decorators import action
-from rest_framework.decorators import (permission_classes as
-                                       drf_permission_classes)
+from rest_framework.decorators import (action, permission_classes
+                                       as drf_permission_classes)
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -19,9 +18,11 @@ from .paginators import PageLimitPagination
 from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime
 import csv
-from io import StringIO, BytesIO
 from django.http import FileResponse
-from .permissions import RecipePermission, AuthorOrReading
+from .permissions import AuthorOrReading
+import os
+from tempfile import NamedTemporaryFile
+
 
 User = get_user_model()
 
@@ -34,22 +35,36 @@ class FoodgramUserViewSet(UserViewSet):
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
+    
+    # Декоратор permission_classes почему-то пропускает анонимного пользователя
+    # так же как и кастомный пермишен и настройки в settings.py
+    @action(["get", "put", "patch", "delete"], detail=False)
+    def me(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            raise exceptions.NotAuthenticated(
+                "Пользователь не аутентифицирован")
+        return super().me(request, *args, **kwargs)
 
+    @drf_permission_classes([permissions.IsAuthenticated,])
     @action(detail=False, methods=["put", "delete"], url_path="me/avatar")
     def avatar(self, request, *args, **kwargs):
         user = request.user
+        if not user.is_authenticated:
+            raise exceptions.NotAuthenticated(
+                "Пользователь не аутентифицирован")
 
         if request.method == "PUT":
             serializer = serializers.AvatarSerializer(user, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-
+        
         user.avatar.delete(save=False)
         user.avatar = None
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @drf_permission_classes([permissions.IsAuthenticated,])
     @action(methods=["GET"], detail=False, url_path="subscriptions")
     def subscriptions(self, request, *args, **kwargs):
         user = request.user
@@ -60,22 +75,29 @@ class FoodgramUserViewSet(UserViewSet):
         )
         return self.get_paginated_response(data=serializier.data)
 
+    @drf_permission_classes([permissions.IsAuthenticated,])
     @action(methods=["POST", "DELETE"], detail=True, url_path="subscribe")
     def subscribe(self, request, id):
         follower = request.user
         user = get_object_or_404(User, pk=id)
         
         if request.method == "POST":
-            follow, created = Follow.objects.get_or_create(
-                follower=follower,
-                user=user
-            )
+            try:
+                follow, created = Follow.objects.get_or_create(
+                    follower=follower,
+                    user=user
+                )
+            except TypeError:
+                raise exceptions.NotAuthenticated(
+                    "Пользователь не аутентифицирован") 
             if (not created or follower == user):
                 raise exceptions.ValidationError(
-                    '''Нельзя подписываться на себя 
-                    так же как и нельзя подписаться два раза!'''
+                    'Нельзя дважды на одного пользователя!'
                 )
-            
+            if (follower == user):
+                raise exceptions.ValidationError(
+                    'Нельзя подписываться на себя!'
+                )
             serializer = serializers.FoodgramUserWithRecipesSerializer(
                 user, context=self.get_serializer_context()
             )
@@ -86,7 +108,10 @@ class FoodgramUserViewSet(UserViewSet):
         try: 
             obj = Follow.objects.get(follower=follower, user=user) 
         except ObjectDoesNotExist: 
-            raise exceptions.ValidationError() 
+            raise exceptions.ValidationError("Такая подписка не существует") 
+        except TypeError:
+            raise exceptions.NotAuthenticated(
+                "Пользователь не аутентифицирован") 
         obj.delete() 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -98,11 +123,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     ]
     filterset_class = RecipeFilter
     pagination_class = PageLimitPagination
-    permission_classes = [RecipePermission,]
 
     def get_serializer_class(self):
         if self.action == 'favorite' or self.action == 'shopping_cart':
-            return serializers.AlterRecipeSerializer
+            return serializers.ForReadRecipeSerializer
         return serializers.RecipeSerializer
 
     def get_serializer_context(self):
@@ -113,6 +137,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+    def perform_destroy(self, recipe):
+        
+        if not self.request.user.is_authenticated:
+            raise exceptions.NotAuthenticated(
+                "Пользователь не аутентифицирован")
+        if self.request.user != recipe.author:
+            raise exceptions.PermissionDenied(
+                "Пользователь не является автором удаляемого рецепта")
+
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
         if not self.request.user.is_authenticated:
@@ -122,9 +155,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             object, created = model.objects.get_or_create(
                 user=self.request.user,
                 recipe=recipe)
-            if not created: 
+            if not created:
                 raise exceptions.ValidationError(
-                    "Рецепт уже есть в корзине покупок!")
+                    "Такой %(class)s уже есть!")
 
             new = object.recipe
             serializer = self.get_serializer_class()(
@@ -140,7 +173,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 user=self.request.user 
             ) 
         except (ObjectDoesNotExist, TypeError):
-            raise exceptions.ValidationError 
+            raise exceptions.ValidationError("Такой %(class)s не существует")
         object.delete() 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -156,12 +189,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get"], url_path="get-link")
     def get_short_link(self, request, pk=None):
-        res = ''.join(
-            request.build_absolute_uri().split("get-link")[0].split('/api'))
-
+        base_url = request.build_absolute_uri('/')[:-1] 
         return Response({
-            "short-link": res,
-        }, status=status.HTTP_200_OK)
+            'short-link': f"{base_url}/recipes/{pk}/"
+        })
 
     @drf_permission_classes([permissions.IsAuthenticated])
     @action(
@@ -176,48 +207,52 @@ class RecipeViewSet(viewsets.ModelViewSet):
         cart_items = request.user.carts.select_related(
             'recipe', 'recipe__author')
         
-        buffer = StringIO()
-        writer = csv.writer(buffer)
+        with NamedTemporaryFile(mode='w+', suffix='.csv', 
+                                delete=False, encoding='utf-8') as temp_file:
+            writer = csv.writer(temp_file)
+            
+            writer.writerow([f"Список покупок \
+                            ({datetime.now().strftime('%Y-%m-%d %H:%M')})"])
+            writer.writerow([])
+            
+            writer.writerow(
+                ['№', 'Ингредиент', 'Количество', 'Единица измерения'])
+            
+            ingredients = {}
+            recipes = set()
+            
+            for item in cart_items:
+                recipes.add(f"{item.recipe.name} \
+                            (автор: {item.recipe.author.username})")
+                for product in item.recipe.products.all():
+                    key = (
+                        product.ingredient.name,
+                        product.ingredient.measurement_unit)
+                    ingredients[key] = ingredients.get(key, 0) + product.amount
+            
+            sorted_ingredients = sorted(
+                ingredients.items(), key=lambda x: x[0][0])
+            for idx, ((name, unit), amount) in enumerate(
+                    sorted_ingredients, start=1):
+                writer.writerow([idx, name.capitalize(), amount, unit])
+            
+            writer.writerow([])
+            writer.writerow(["Рецепты:"])
+            for recipe in sorted(recipes):
+                writer.writerow([f"- {recipe}"])
+            
+            temp_file_path = temp_file.name
         
-        writer.writerow(
-            [f"Список покупок ({datetime.now().strftime('%Y-%m-%d %H:%M')}"])
-        writer.writerow([])
-        
-        writer.writerow(['№', 'Ингредиент', 'Количество', 'Единица измерения'])
-        
-        ingredients = {}
-        recipes = set()
-        
-        for item in cart_items:
-            recipes.add(
-                f"{item.recipe.name} (автор: {item.recipe.author.username})")
-            for product in item.recipe.products.all():
-                key = (
-                    product.ingredient.name,
-                    product.ingredient.measurement_unit
-                )
-                ingredients[key] = ingredients.get(key, 0) + product.amount
-        
-        sorted_ingredients = sorted(ingredients.items(), key=lambda x: x[0][0])
-        for idx, ((name, unit), amount) in enumerate(
-            sorted_ingredients,
-            start=1
-        ):
-            writer.writerow([idx, name.capitalize(), amount, unit])
-        
-        writer.writerow([])
-        writer.writerow(["Рецепты:"])
-        for recipe in sorted(recipes):
-            writer.writerow([f"- {recipe}"])
-        
-        csv_buffer = BytesIO(buffer.getvalue().encode('utf-8'))
-        
-        return FileResponse(
-            csv_buffer,
+        response = FileResponse(
+            open(temp_file_path, 'rb'),
             content_type='text/csv',
             as_attachment=True,
             filename=f'shopping_list_{datetime.now().strftime("%Y%m%d")}.csv'
         )
+        
+        response.callback = lambda: os.unlink(temp_file_path)
+        
+        return response
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):

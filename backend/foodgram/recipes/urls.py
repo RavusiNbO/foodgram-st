@@ -1,6 +1,6 @@
-from django.urls import path, include
-from api.urls import router
+from django.urls import path
+from .views import link_handler
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('recipes/<int:pk>/get-link/', link_handler, name='get-link'),
 ]

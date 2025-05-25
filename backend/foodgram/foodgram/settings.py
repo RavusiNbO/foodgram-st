@@ -87,12 +87,8 @@ WSGI_APPLICATION = "foodgram.wsgi.application"
 
 DATABASES = {
     "default": { 
-        "ENGINE": "django.db.backends.postgresql",  
-        'NAME': os.getenv('POSTGRES_DB', 'django'),  
-        'USER': os.getenv('POSTGRES_USER', 'django'),  
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),  
-        'HOST': os.getenv('DB_HOST', ''),  
-        'PORT': os.getenv('DB_PORT', 5432) 
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / 'db.sqlite3'
     }
 }
 
@@ -134,7 +130,7 @@ DJOSER = {
     'PERMISSIONS': {
         'user_create': ['rest_framework.permissions.AllowAny'],
         'user_delete': ['djoser.permissions.CurrentUserOrAdmin'],
-        'user': ["rest_framework.permissions.AllowAny"],
+        'user': ["rest_framework.permissions.IsAuthenticated"],
         'user_list': ["rest_framework.permissions.AllowAny"],
     },
     "SERIALIZERS": {

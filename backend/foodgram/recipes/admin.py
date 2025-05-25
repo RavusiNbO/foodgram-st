@@ -24,10 +24,11 @@ class RecipeAdmin(admin.ModelAdmin):
     search_fields = ("author__username", "name")
     inlines = (ProductInRecipeInline,)
 
-    @display(description='Добавления в избранное')
+    @display(description='Избранное')
     def fav_count(self, recipe):
         return recipe.favorites.count()
 
+    @display(description='Аватар')
     @mark_safe
     def image(self, recipe):
         return f'<img src="{recipe.image}">'
@@ -39,13 +40,13 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = ("name", "measurement_unit")
     list_filter = ('measurement_unit',)
 
-    @display(description='Количество рецептов')
+    @display(description='Рецептов')
     def recipe_count(self, ingredient):
         return ingredient.products.count()
 
 
 @admin.register(models.FoodgramUser)
-class UserAdminka(UserAdmin):
+class FoodgramUserAdmin(UserAdmin):
     search_fields = ("username", 'email')
     list_display = (
         "id",
@@ -58,20 +59,17 @@ class UserAdminka(UserAdmin):
         'followers_count'
     )
 
-    @display(description='Количество рецептов')
+    @display(description='Рецептов')
     def recipes_count(self, user):
         return user.recipes.count()
-    recipes_count.short_description = 'Количество рецептов'
 
-    @display(description='Количество подписчиков')
+    @display(description='Подписчиков')
     def followers_count(self, user):
         return user.follows_user.count()
-    followers_count.short_description = 'Количество подписчиков'
 
-    @display(description='Количество подписок')
+    @display(description='Подписок')
     def follow_count(self, user):
         return user.follows_follower.count()
-    follow_count.short_description = 'Количество подписок'
 
     @display(description='ФИО')
     def FIO(self, user):

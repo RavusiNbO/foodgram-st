@@ -17,7 +17,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = ["name", "measurement_unit", "id"]
 
 
-class AlterRecipeSerializer(serializers.ModelSerializer):
+class ForReadRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Recipe
         fields = ("id", "name", "cooking_time", "image")
@@ -66,10 +66,6 @@ class FoodgramUserSerializer(DjoserUserSerializer):
                 follower=request.user, 
                 user=obj).exists() 
         return False
-    
-    def validate(self, data):
-        if not self.instance:
-            raise exceptions.ValidationError()
 
 
 class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
@@ -92,7 +88,7 @@ class FoodgramUserWithRecipesSerializer(FoodgramUserSerializer):
             author=obj
         )[: int(recipes_limit)]
  
-        return AlterRecipeSerializer(recipes, many=True).data 
+        return ForReadRecipeSerializer(recipes, many=True).data 
 
 
 class RecipeProductSerializer(serializers.ModelSerializer):
@@ -156,11 +152,10 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def update(self, recipe, validated_data):
         ingredients_data = validated_data.pop("products")
-        recipe = super().update(recipe, validated_data)
         recipe.products.all().delete()
         self.create_products(recipe, ingredients_data)
 
-        return recipe
+        return super().update(recipe, validated_data)
 
     def get_is_favorited(self, obj):
         request = self.context.get("request")
@@ -177,6 +172,13 @@ class RecipeSerializer(serializers.ModelSerializer):
         return False
     
     def validate(self, data):
+        if not self.context.get("request").user.is_authenticated:
+            raise exceptions.NotAuthenticated(
+                "Пользователь не аутентифицирован")
+        if (self.context.get('request').method in ["PUT", "PATCH"]
+                and self.context.get('request').user != self.instance.author):
+            raise exceptions.PermissionDenied(
+                "Пользователь не авторизован для этого действия")
         if 'products' not in data:
             raise serializers.ValidationError(
                 {"ingredients": "Это поле обязательно."}
