@@ -9,19 +9,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             with open("ingredients.json") as f:
-                data = json.load(f)
                 Ingredient.objects.bulk_create(
-                    Ingredient(
+                    [Ingredient(
                         **i
-                    ) for i in data
+                    ) for i in json.load(f)],
+                    ignore_conflicts=True
                 )
                 self.stdout.write(self.style.SUCCESS(
-                    f'Импорт завершен. Число новых записей - {len(data)}'))
-        except FileNotFoundError:
-            print("Файл не найден. Пожалуйста, убедитесь,", 
-                  "что ingredients.json существует.")
-        except json.JSONDecodeError:
-            print("Ошибка декодирования JSON. Проверьте,",
-                  "что файл содержит корректные данные.")
+                    f'Импорт завершен. Число новых \
+                    записей - {Ingredient.objects.count()}'))
         except Exception as e:
-            print(f"Произошла ошибка: {e}")
+            print("Произошла ошибка при загрузке данных",
+                  f"из файла ingredients.json: {e}")

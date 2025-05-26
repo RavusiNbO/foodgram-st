@@ -5,7 +5,6 @@ from recipes.models import Follow, Favorite, Cart
 from django.core.files.base import ContentFile
 import base64
 from djoser.serializers import UserSerializer as DjoserUserSerializer
-from rest_framework import exceptions
 
 
 User = get_user_model()
@@ -172,13 +171,6 @@ class RecipeSerializer(serializers.ModelSerializer):
         return False
     
     def validate(self, data):
-        if not self.context.get("request").user.is_authenticated:
-            raise exceptions.NotAuthenticated(
-                "Пользователь не аутентифицирован")
-        if (self.context.get('request').method in ["PUT", "PATCH"]
-                and self.context.get('request').user != self.instance.author):
-            raise exceptions.PermissionDenied(
-                "Пользователь не авторизован для этого действия")
         if 'products' not in data:
             raise serializers.ValidationError(
                 {"ingredients": "Это поле обязательно."}

@@ -3,8 +3,7 @@ from rest_framework.response import Response
 from recipes import models
 from recipes.models import Follow, Favorite, Cart
 from rest_framework import viewsets, pagination
-from rest_framework.decorators import (action, permission_classes
-                                       as drf_permission_classes)
+from rest_framework.decorators import action
 from djoser.views import UserViewSet
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -36,17 +35,15 @@ class FoodgramUserViewSet(UserViewSet):
         context["request"] = self.request
         return context
     
-    # Декоратор permission_classes почему-то пропускает анонимного пользователя
-    # так же как и кастомный пермишен и настройки в settings.py
-    @action(["get", "put", "patch", "delete"], detail=False)
+    @action(methods=["get", "put", "patch", "delete"],
+            detail=False, permission_classes=[permissions.IsAuthenticated])
     def me(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            raise exceptions.NotAuthenticated(
-                "Пользователь не аутентифицирован")
         return super().me(request, *args, **kwargs)
 
-    @drf_permission_classes([permissions.IsAuthenticated,])
-    @action(detail=False, methods=["put", "delete"], url_path="me/avatar")
+    @action(detail=False,
+            methods=["put", "delete"],
+            url_path="me/avatar",
+            permission_classes=[permissions.IsAuthenticated])
     def avatar(self, request, *args, **kwargs):
         user = request.user
         if not user.is_authenticated:
@@ -64,8 +61,10 @@ class FoodgramUserViewSet(UserViewSet):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @drf_permission_classes([permissions.IsAuthenticated,])
-    @action(methods=["GET"], detail=False, url_path="subscriptions")
+    @action(methods=["GET"],
+            detail=False,
+            url_path="subscriptions",
+            permission_classes=[permissions.IsAuthenticated])
     def subscriptions(self, request, *args, **kwargs):
         user = request.user
         queryset = User.objects.filter(follows_user__follower=user)
@@ -75,24 +74,22 @@ class FoodgramUserViewSet(UserViewSet):
         )
         return self.get_paginated_response(data=serializier.data)
 
-    @drf_permission_classes([permissions.IsAuthenticated,])
-    @action(methods=["POST", "DELETE"], detail=True, url_path="subscribe")
+    @action(methods=["POST", "DELETE"],
+            detail=True,
+            url_path="subscribe",
+            permission_classes=[permissions.IsAuthenticated])
     def subscribe(self, request, id):
         follower = request.user
         user = get_object_or_404(User, pk=id)
         
         if request.method == "POST":
-            try:
-                follow, created = Follow.objects.get_or_create(
-                    follower=follower,
-                    user=user
-                )
-            except TypeError:
-                raise exceptions.NotAuthenticated(
-                    "Пользователь не аутентифицирован") 
-            if (not created or follower == user):
+            follow, created = Follow.objects.get_or_create(
+                follower=follower,
+                user=user
+            )
+            if (not created):
                 raise exceptions.ValidationError(
-                    'Нельзя дважды на одного пользователя!'
+                    f'Нельзя дважды на пользователя {user}!'
                 )
             if (follower == user):
                 raise exceptions.ValidationError(
@@ -109,9 +106,6 @@ class FoodgramUserViewSet(UserViewSet):
             obj = Follow.objects.get(follower=follower, user=user) 
         except ObjectDoesNotExist: 
             raise exceptions.ValidationError("Такая подписка не существует") 
-        except TypeError:
-            raise exceptions.NotAuthenticated(
-                "Пользователь не аутентифицирован") 
         obj.delete() 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -122,6 +116,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         DjangoFilterBackend,
     ]
     filterset_class = RecipeFilter
+    permission_classes = (AuthorOrReading,)
     pagination_class = PageLimitPagination
 
     def get_serializer_class(self):
@@ -137,19 +132,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def perform_destroy(self, recipe):
-        
-        if not self.request.user.is_authenticated:
-            raise exceptions.NotAuthenticated(
-                "Пользователь не аутентифицирован")
-        if self.request.user != recipe.author:
-            raise exceptions.PermissionDenied(
-                "Пользователь не является автором удаляемого рецепта")
-
     def add_delete_fav_cart(self, model, pk):
         recipe = get_object_or_404(models.Recipe, pk=pk)
-        if not self.request.user.is_authenticated:
-            raise exceptions.NotAuthenticated()
 
         if self.request.method == "POST":
             object, created = model.objects.get_or_create(
@@ -157,7 +141,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 recipe=recipe)
             if not created:
                 raise exceptions.ValidationError(
-                    "Такой %(class)s уже есть!")
+                    f"Рецепт {recipe.name} в \
+                          {model.__class__.__name__} уже есть!")
 
             new = object.recipe
             serializer = self.get_serializer_class()(
@@ -172,29 +157,31 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 recipe=recipe, 
                 user=self.request.user 
             ) 
-        except (ObjectDoesNotExist, TypeError):
-            raise exceptions.ValidationError("Такой %(class)s не существует")
+        except ObjectDoesNotExist:
+            raise exceptions.ValidationError(
+                f"Рецепт {recipe.name} в \
+                      {model.__class__.__name__} не существует!")
         object.delete() 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @drf_permission_classes([permissions.IsAuthenticated])
-    @action(detail=True, methods=["post", "delete"])
+    @action(detail=True,
+            methods=["post", "delete"],
+            permission_classes=[permissions.IsAuthenticated])
     def favorite(self, request, pk):
         return self.add_delete_fav_cart(Favorite, pk)
 
-    @drf_permission_classes([permissions.IsAuthenticated])
-    @action(detail=True, methods=["post", "delete"])
+    @action(detail=True,
+            methods=["post", "delete"],
+            permission_classes=[permissions.IsAuthenticated])
     def shopping_cart(self, request, pk):
         return self.add_delete_fav_cart(Cart, pk)
     
     @action(detail=True, methods=["get"], url_path="get-link")
     def get_short_link(self, request, pk=None):
-        base_url = request.build_absolute_uri('/')[:-1] 
         return Response({
-            'short-link': f"{base_url}/recipes/{pk}/"
+            'short-link': request.build_absolute_uri(f'/r/{pk}/')
         })
 
-    @drf_permission_classes([permissions.IsAuthenticated])
     @action(
         methods=["get"],
         detail=False,
@@ -202,6 +189,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         renderer_classes=[
             CSVRenderer,
         ],
+        permission_classes=[permissions.IsAuthenticated]
     )
     def download_shopping_cart(self, request):
         cart_items = request.user.carts.select_related(
