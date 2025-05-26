@@ -5,5 +5,5 @@ from .models import Recipe
 
 @api_view(["get",])
 def link_handler(request, pk):
-    recipe = get_object_or_404(Recipe, pk=pk)
+    get_object_or_404(Recipe, pk=pk)
     return redirect(f"/api/recipes/{pk}/")
